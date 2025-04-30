@@ -1,175 +1,159 @@
 from sqlalchemy import Column, Integer, String, Date, Float, Time, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 
 
 class Patient(Base):
-    __tablename__ = "Patient"
+    __tablename__ = "patient"
 
-    PatientID = Column(Integer, primary_key=True, index=True)
-    Patient_FIO = Column(String, nullable=False)
-    Patient_BirthDate = Column(Date, nullable=False)
-    Patient_Address = Column(String)
-    Patient_Phone = Column(String)
-    PolyclinicID = Column(Integer, ForeignKey("Polyclinic.PolyclinicID"), nullable=False)
+    patientid = Column(Integer, primary_key=True, index=True)
+    patient_fio = Column(String, nullable=False)
+    patient_birthdate = Column(Date, nullable=False)
+    patient_address = Column(String)
+    patient_phone = Column(String)
+    polyclinicid = Column(Integer, ForeignKey("polyclinic.polyclinicid"), nullable=False)
 
 
 class Doctor(Base):
-    __tablename__ = "Doctor"
+    __tablename__ = "doctor"
 
-    DoctorID = Column(Integer, primary_key=True, index=True)
-    Doctor_FIO = Column(String, nullable=False)
-    Doctor_BirthDate = Column(Date, nullable=False)
-    Doctor_Specialization = Column(String, nullable=False)
-    Doctor_Phone = Column(String)
-    PolyclinicID = Column(Integer, ForeignKey("Polyclinic.PolyclinicID"), nullable=False)
-
-
-class Session(Base):
-    __tablename__ = "Session"
-
-    SessionID = Column(Integer, primary_key=True, index=True)
-    Session_Date = Column(Date, nullable=False)
-    Session_StartTime = Column(String, nullable=False)  # Время можно хранить как строку или Time
-    Session_EndTime = Column(String, nullable=False)
-    PatientID = Column(Integer, ForeignKey("Patient.PatientID"), nullable=False)
-    DoctorID = Column(Integer, ForeignKey("Doctor.DoctorID"), nullable=False)
-    LabID = Column(Integer, ForeignKey("Laboratory.LabID"), nullable=False)
+    doctorid = Column(Integer, primary_key=True, index=True)
+    doctor_fio = Column(String, nullable=False)
+    doctor_birthdate = Column(Date, nullable=False)
+    doctor_specialization = Column(String, nullable=False)
+    doctor_phone = Column(String)
+    polyclinicid = Column(Integer, ForeignKey("polyclinic.polyclinicid"), nullable=False)
 
 
-class ECS_Data(Base):
-    __tablename__ = "ECS_Data"
+class Sessions(Base):
+    __tablename__ = "session"
 
-    ECSDataID = Column(Integer, primary_key=True, index=True)
-    SessionID = Column(Integer, ForeignKey("Session.SessionID"), nullable=False)
-    RR_Length = Column(Integer, nullable=False)
-    RR_Time = Column(Float, nullable=False)
-
-
-class PG_Data(Base):
-    __tablename__ = "PG_Data"
-
-    PGDataID = Column(Integer, primary_key=True, index=True)
-    SessionID = Column(Integer, ForeignKey("Session.SessionID"), nullable=False)
-    D1 = Column(Integer, nullable=False)
-    D2 = Column(Integer, nullable=False)
-    Amplitude = Column(Float)
+    sessionid = Column(Integer, primary_key=True, index=True)
+    session_date = Column(Date, nullable=False)
+    session_starttime = Column(Time, nullable=False)
+    session_endtime = Column(Time, nullable=False)
+    patientid = Column(Integer, ForeignKey("patient.patientid"), nullable=False)
+    doctorid = Column(Integer, ForeignKey("doctor.doctorid"), nullable=False)
+    labid = Column(Integer, ForeignKey("laboratory.labid"), nullable=False)
 
 
-# Таблица "Поликлиника"
+class ECS_data(Base):
+    __tablename__ = "ecs_data"
+
+    ecsdataid = Column(Integer, primary_key=True, index=True)
+    sessionid = Column(Integer, ForeignKey("session.sessionid"), nullable=False)
+    rr_length = Column(Integer, nullable=False)
+    rr_time = Column(Float, nullable=False)
+
+
+class PG_data(Base):
+    __tablename__ = "pg_data"
+
+    pgdataid = Column(Integer, primary_key=True, index=True)
+    sessionid = Column(Integer, ForeignKey("session.sessionid"), nullable=False)
+    d1 = Column(Integer, nullable=False)
+    d2 = Column(Integer, nullable=False)
+    amplitude = Column(Float)
+
+
 class Polyclinic(Base):
-    __tablename__ = "Polyclinic"
+    __tablename__ = "polyclinic"
 
-    PolyclinicID = Column(Integer, primary_key=True, index=True)
-    Polyclinic_Name = Column(String(255), nullable=False)
-    Polyclinic_Address = Column(String(255), nullable=False)
-    Polyclinic_Phone = Column(String(20))
+    polyclinicid = Column(Integer, primary_key=True, index=True)
+    polyclinic_name = Column(String(255), nullable=False)
+    polyclinic_address = Column(String(255), nullable=False)
+    polyclinic_phone = Column(String(20))
 
 
-# Таблица "Регистратура"
 class Registration(Base):
-    __tablename__ = "Registration"
+    __tablename__ = "registration"
 
-    RegistrationID = Column(Integer, primary_key=True, index=True)
-    PatientID = Column(Integer, ForeignKey("Patient.PatientID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
-    PolyclinicID = Column(Integer, ForeignKey("Polyclinic.PolyclinicID", ondelete="CASCADE", onupdate="CASCADE"),
-                          nullable=False)
-    Registration_Date = Column(Date, nullable=False)
-    Registration_Time = Column(Time, nullable=False)
+    registrationid = Column(Integer, primary_key=True, index=True)
+    patientid = Column(Integer, ForeignKey("patient.patientid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    polyclinicid = Column(Integer, ForeignKey("polyclinic.polyclinicid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    registration_date = Column(Date, nullable=False)
+    registration_time = Column(Time, nullable=False)
 
 
-# Таблица "Лаборатория"
 class Laboratory(Base):
-    __tablename__ = "Laboratory"
+    __tablename__ = "laboratory"
 
-    LabID = Column(Integer, primary_key=True, index=True)
-    Lab_Name = Column(String(255), nullable=False)
-    Lab_Address = Column(String(255), nullable=False)
-    PolyclinicID = Column(Integer, ForeignKey("Polyclinic.PolyclinicID", ondelete="CASCADE", onupdate="CASCADE"),
-                          nullable=False)
+    labid = Column(Integer, primary_key=True, index=True)
+    lab_name = Column(String(255), nullable=False)
+    lab_address = Column(String(255), nullable=False)
+    polyclinicid = Column(Integer, ForeignKey("polyclinic.polyclinicid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
 
 
-# Таблица "Оборудование"
 class Equipment(Base):
-    __tablename__ = "Equipment"
+    __tablename__ = "equipment"
 
-    EquipmentID = Column(Integer, primary_key=True, index=True)
-    Equipment_Name = Column(String(255), nullable=False)
-    Equipment_Serial = Column(String(50), nullable=False)  # Custom domain EquipmentSerial
-    LabID = Column(Integer, ForeignKey("Laboratory.LabID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
-
-
-# Таблица "Результаты анализа"
-class Analysis_Result(Base):
-    __tablename__ = "Analysis_Result"
-
-    AnalysisResultID = Column(Integer, primary_key=True, index=True)
-    SessionID = Column(Integer, ForeignKey("Session.SessionID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
-    RR_Analysis = Column(Text, nullable=False)
-    DU_Analysis = Column(Text, nullable=False)
+    equipmentid = Column(Integer, primary_key=True, index=True)
+    equipment_name = Column(String(255), nullable=False)
+    equipment_serial = Column(String(50), nullable=False)  # Custom domain EquipmentSerial
+    labid = Column(Integer, ForeignKey("laboratory.labid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
 
 
-# Таблица "График работы врачей"
-class Doctor_Schedule(Base):
-    __tablename__ = "Doctor_Schedule"
+class Analysis_result(Base):
+    __tablename__ = "analysis_result"
 
-    ScheduleID = Column(Integer, primary_key=True, index=True)
-    DoctorID = Column(Integer, ForeignKey("Doctor.DoctorID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
-    WorkDate = Column(Date, nullable=False)
-    StartTime = Column(Time, nullable=False)
-    EndTime = Column(Time, nullable=False)
+    analysisresultid = Column(Integer, primary_key=True, index=True)
+    sessionid = Column(Integer, ForeignKey("session.sessionid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    rr_analysis = Column(Text, nullable=False)
+    du_analysis = Column(Text, nullable=False)
 
 
-# Таблица "Диагноз"
+class Doctor_schedule(Base):
+    __tablename__ = "doctor_schedule"
+
+    scheduleid = Column(Integer, primary_key=True, index=True)
+    doctorid = Column(Integer, ForeignKey("doctor.doctorid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    workdate = Column(Date, nullable=False)
+    starttime = Column(Time, nullable=False)
+    endtime = Column(Time, nullable=False)
+
+
 class Diagnosis(Base):
-    __tablename__ = "Diagnosis"
+    __tablename__ = "diagnosis"
 
-    DiagnosisID = Column(Integer, primary_key=True, index=True)
-    PatientID = Column(Integer, ForeignKey("Patient.PatientID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
-    DiagnosisName = Column(String(255))
-    Description = Column(Text, nullable=False)
-    DateOfDiagnosis = Column(Date, nullable=False)
-    DoctorID = Column(Integer, ForeignKey("Doctor.DoctorID", ondelete="CASCADE", onupdate="CASCADE"))
-
-
-# Таблица "Хронические заболевания"
-class Chronic_Condition(Base):
-    __tablename__ = "Chronic_Condition"
-
-    ChronicID = Column(Integer, primary_key=True, index=True)
-    PatientID = Column(Integer, ForeignKey("Patient.PatientID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
-    ConditionName = Column(String(255), nullable=False)
-    DiagnosisDate = Column(Date)
-    Remarks = Column(Text)
+    diagnosisid = Column(Integer, primary_key=True, index=True)
+    patientid = Column(Integer, ForeignKey("patient.patientid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    diagnosis_name = Column(String(255))
+    description = Column(Text, nullable=False)
+    date_of_diagnosis = Column(Date, nullable=False)
+    doctorid = Column(Integer, ForeignKey("doctor.doctorid", ondelete="CASCADE", onupdate="CASCADE"))
 
 
-# Таблица "Рекомендации по лечению"
-class Treatment_Recommendation(Base):
-    __tablename__ = "Treatment_Recommendation"
+class Chronic_condition(Base):
+    __tablename__ = "chronic_condition"
 
-    RecommendationID = Column(Integer, primary_key=True, index=True)
-    DiagnosisID = Column(Integer, ForeignKey("Diagnosis.DiagnosisID", ondelete="CASCADE", onupdate="CASCADE"),
-                         nullable=False)
-    TreatmentPlan = Column(Text, nullable=False)
-    AdditionalRemarks = Column(Text)
-
-
-# Таблица "Вид деятельности"
-class Activity_Type(Base):
-    __tablename__ = "Activity_Type"
-
-    ActivityTypeID = Column(Integer, primary_key=True, index=True)
-    ActivityName = Column(String(255), nullable=False)
-    Description = Column(Text)
+    chronicid = Column(Integer, primary_key=True, index=True)
+    patientid = Column(Integer, ForeignKey("patient.patientid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    condition_name = Column(String(255), nullable=False)
+    diagnosis_date = Column(Date)
+    remarks = Column(Text)
 
 
-# Таблица "Вид деятельности пациента"
-class Patient_Activity(Base):
-    __tablename__ = "Patient_Activity"
+class Treatment_recommendation(Base):
+    __tablename__ = "treatment_recommendation"
 
-    PatientActivityID = Column(Integer, primary_key=True, index=True)
-    PatientID = Column(Integer, ForeignKey("Patient.PatientID", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
-    ActivityTypeID = Column(Integer, ForeignKey("Activity_Type.ActivityTypeID", ondelete="CASCADE", onupdate="CASCADE"),
-                            nullable=False)
+    recommendationid = Column(Integer, primary_key=True, index=True)
+    diagnosisid = Column(Integer, ForeignKey("diagnosis.diagnosisid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    treatment_plan = Column(Text, nullable=False)
+    additional_remarks = Column(Text)
+
+
+class Activity_type(Base):
+    __tablename__ = "activity_type"
+
+    activitytypeid = Column(Integer, primary_key=True, index=True)
+    activity_name = Column(String(255), nullable=False)
+    description = Column(Text)
+
+
+class Patient_activity(Base):
+    __tablename__ = "patient_activity"
+
+    patientactivityid = Column(Integer, primary_key=True, index=True)
+    patientid = Column(Integer, ForeignKey("patient.patientid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
+    activitytypeid = Column(Integer, ForeignKey("activity_type.activitytypeid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
