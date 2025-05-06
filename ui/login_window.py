@@ -46,24 +46,33 @@ class LoginWindow(QMainWindow):
         self.login_button.clicked.connect(self.authenticate_user)
         self.layout.addWidget(self.login_button)
 
+        # Обработка клавиши Enter
+        self.login_input.returnPressed.connect(self.authenticate_user)
+        self.password_input.returnPressed.connect(self.authenticate_user)
+
     def authenticate_user(self):
         username = self.login_input.text()
         password = self.password_input.text()
+
+        # Отладка: вывод значений логина и пароля
+        print(f"Введенный логин: {username}")
+        print(f"Введенный пароль: {'*' * len(password)}")
 
         if not username or not password:
             self.error_label.setText("Введите логин и пароль!")
             return
 
         # Проверяем учетные данные
-        if authenticate_user(username, password):
+        db_session = authenticate_user(username, password)
+        if db_session:
             self.error_label.setText("")  # Очистка ошибок
-            self.open_main_window(username)
+            self.open_main_window(username, password)
         else:
             self.error_label.setText("Неправильные логин или пароль!")
 
-    def open_main_window(self, username):
+    def open_main_window(self, username, password):
         # Открытие главного окна после успешного входа
         from ui.main_window import MainWindow  # Импортируем здесь, чтобы избежать циклических зависимостей
-        self.main_window = MainWindow(username)
+        self.main_window = MainWindow(username, password)  # Передаем пароль
         self.main_window.show()
         self.close()

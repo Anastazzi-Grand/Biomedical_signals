@@ -1,10 +1,10 @@
-from PyQt6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget, QTabWidget, QPushButton, QHBoxLayout, QTableWidget, QTableWidgetItem
+from PyQt6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget, QTabWidget, QPushButton, QMessageBox, QTableWidget, QTableWidgetItem
 from PyQt6.QtCore import Qt
 from database.session import authenticate_user, get_user_accessible_tables
 from database.models import Patient, Doctor, Sessions, ECS_data, PG_data, Polyclinic, Laboratory, Equipment, Analysis_result, Diagnosis, Chronic_condition, Treatment_recommendation
 
 class MainWindow(QMainWindow):
-    def __init__(self, username):
+    def __init__(self, username, password):
         super().__init__()
 
         self.setWindowTitle("Главная страница")
@@ -27,8 +27,13 @@ class MainWindow(QMainWindow):
 
         # Создаем сессию для получения доступных таблиц
         try:
-            db_session = authenticate_user(username, "password")  # Здесь можно передать пароль из входа
+            db_session = authenticate_user(username, password)  # Используем переданный пароль
+            if not db_session:
+                raise Exception("Не удалось создать сессию базы данных.")
+
             accessible_tables = get_user_accessible_tables(db_session, username)
+            if not accessible_tables:
+                raise Exception("Нет доступных таблиц для пользователя.")
 
             # Добавляем вкладки для каждой доступной таблицы
             for table_name in accessible_tables:
@@ -49,6 +54,7 @@ class MainWindow(QMainWindow):
                 self.tab_widget.addTab(tab_content, table_name.capitalize())
         except Exception as e:
             print(f"Ошибка при получении доступных таблиц: {e}")
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить данные: {e}")
 
         # Кнопка "Выход"
         self.exit_button = QPushButton("Выход")
@@ -68,80 +74,6 @@ class MainWindow(QMainWindow):
             table.setItem(row, 2, QTableWidgetItem(str(patient.patient_birthdate)))
             table.setItem(row, 3, QTableWidgetItem(patient.patient_address or ""))
             table.setItem(row, 4, QTableWidgetItem(patient.patient_phone or ""))
-        return table
-
-    def load_doctor_table(self, db_session):
-        """Загружает данные врачей в таблицу."""
-        doctors = db_session.query(Doctor).all()
-        table = QTableWidget()
-        table.setColumnCount(5)
-        table.setHorizontalHeaderLabels(["ID", "ФИО", "Дата рождения", "Специализация", "Телефон"])
-        table.setRowCount(len(doctors))
-        for row, doctor in enumerate(doctors):
-            table.setItem(row, 0, QTableWidgetItem(str(doctor.doctorid)))
-            table.setItem(row, 1, QTableWidgetItem(doctor.doctor_fio))
-            table.setItem(row, 2, QTableWidgetItem(str(doctor.doctor_birthdate)))
-            table.setItem(row, 3, QTableWidgetItem(doctor.doctor_specialization))
-            table.setItem(row, 4, QTableWidgetItem(doctor.doctor_phone or ""))
-        return table
-
-    def load_session_table(self, db_session):
-        """Загружает данные сеансов в таблицу."""
-        sessions = db_session.query(Sessions).all()
-        table = QTableWidget()
-        table.setColumnCount(5)
-        table.setHorizontalHeaderLabels(["ID", "Дата", "Начало", "Конец", "Пациент"])
-        table.setRowCount(len(sessions))
-        for row, session in enumerate(sessions):
-            table.setItem(row, 0, QTableWidgetItem(str(session.sessionid)))
-            table.setItem(row, 1, QTableWidgetItem(str(session.session_date)))
-            table.setItem(row, 2, QTableWidgetItem(str(session.session_starttime)))
-            table.setItem(row, 3, QTableWidgetItem(str(session.session_endtime)))
-            table.setItem(row, 4, QTableWidgetItem(str(session.patientid)))
-        return table
-
-    def load_ecs_data_table(self, db_session):
-        """Загружает данные ЭКГ в таблицу."""
-        ecs_data = db_session.query(ECS_data).all()
-        table = QTableWidget()
-        table.setColumnCount(4)
-        table.setHorizontalHeaderLabels(["ID", "Сеанс", "RR Length", "RR Time"])
-        table.setRowCount(len(ecs_data))
-        for row, data in enumerate(ecs_data):
-            table.setItem(row, 0, QTableWidgetItem(str(data.ecsdataid)))
-            table.setItem(row, 1, QTableWidgetItem(str(data.sessionid)))
-            table.setItem(row, 2, QTableWidgetItem(str(data.rr_length)))
-            table.setItem(row, 3, QTableWidgetItem(str(data.rr_time)))
-        return table
-
-    def load_pg_data_table(self, db_session):
-        """Загружает данные ПГ в таблицу."""
-        pg_data = db_session.query(PG_data).all()
-        table = QTableWidget()
-        table.setColumnCount(5)
-        table.setHorizontalHeaderLabels(["ID", "Сеанс", "D1", "D2", "Amplitude"])
-        table.setRowCount(len(pg_data))
-        for row, data in enumerate(pg_data):
-            table.setItem(row, 0, QTableWidgetItem(str(data.pgdataid)))
-            table.setItem(row, 1, QTableWidgetItem(str(data.sessionid)))
-            table.setItem(row, 2, QTableWidgetItem(str(data.d1)))
-            table.setItem(row, 3, QTableWidgetItem(str(data.d2)))
-            table.setItem(row, 4, QTableWidgetItem(str(data.amplitude) if data.amplitude is not None else ""))
-        return table
-
-    def load_diagnosis_table(self, db_session):
-        """Загружает данные диагнозов в таблицу."""
-        diagnoses = db_session.query(Diagnosis).all()
-        table = QTableWidget()
-        table.setColumnCount(5)
-        table.setHorizontalHeaderLabels(["ID", "Пациент", "Диагноз", "Описание", "Дата"])
-        table.setRowCount(len(diagnoses))
-        for row, diagnosis in enumerate(diagnoses):
-            table.setItem(row, 0, QTableWidgetItem(str(diagnosis.diagnosisid)))
-            table.setItem(row, 1, QTableWidgetItem(str(diagnosis.patientid)))
-            table.setItem(row, 2, QTableWidgetItem(diagnosis.diagnosis_name or ""))
-            table.setItem(row, 3, QTableWidgetItem(diagnosis.description))
-            table.setItem(row, 4, QTableWidgetItem(str(diagnosis.date_of_diagnosis)))
         return table
 
     def logout(self):
