@@ -17,7 +17,7 @@ class Patient(Base):
     # Связи
     registrations = relationship("Registration", back_populates="patient")
     sessions = relationship("Sessions", back_populates="patient")
-    diagnoses = relationship("Diagnosis", back_populates="patient")
+    diagnosis = relationship("Diagnosis", back_populates="patient")
     chronic_conditions = relationship("Chronic_condition", back_populates="patient")
     activities = relationship("Patient_activity", back_populates="patient")
     polyclinic = relationship("Polyclinic", back_populates="patients")
@@ -35,7 +35,7 @@ class Doctor(Base):
     # Связи
     sessions = relationship("Sessions", back_populates="doctor")
     schedules = relationship("Doctor_schedule", back_populates="doctor")
-    diagnoses = relationship("Diagnosis", back_populates="doctor")
+    diagnosis = relationship("Diagnosis", back_populates="doctor")
     polyclinic = relationship("Polyclinic", back_populates="doctors")
 
 
@@ -165,8 +165,8 @@ class Diagnosis(Base):
     doctorid = Column(Integer, ForeignKey("doctor.doctorid", ondelete="CASCADE", onupdate="CASCADE"))
 
     # Связи
-    patient = relationship("Patient", back_populates="diagnoses")
-    doctor = relationship("Doctor", back_populates="diagnoses")
+    patient = relationship("Patient", back_populates="diagnosis")
+    doctor = relationship("Doctor", back_populates="diagnosis")
     recommendations = relationship("Treatment_recommendation", back_populates="diagnosis")
 
 

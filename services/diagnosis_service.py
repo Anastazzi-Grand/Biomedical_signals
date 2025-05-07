@@ -83,7 +83,7 @@ def search_diagnoses_by_patient_fio(db: Session, fio: str):
     result = [
         {
             "diagnosisid": diagnosis.diagnosisid,
-            "diagnosis_name": diagnosis.diagnosis_name,
+            "diagnosis_name": diagnosis.diagnosisname,
             "description": diagnosis.description,
             "dateofdiagnosis": diagnosis.dateofdiagnosis,
             "patient_fio": diagnosis.patient.patient_fio if diagnosis.patient else None,

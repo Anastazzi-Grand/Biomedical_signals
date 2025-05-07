@@ -9,9 +9,6 @@ DATABASE_URL = "postgresql+psycopg2://postgres:password@localhost:5432/Biomedica
 # Создание движка базы данных
 engine = create_engine(DATABASE_URL)
 
-# Создание фабрики сессий
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
 # Функция для проверки логина и пароля через подключение к базе данных
 def authenticate_user(username, password):
     try:
@@ -72,3 +69,15 @@ def get_user_accessible_tables(db_session, username):
     except Exception as e:
         print(f"Неожиданная ошибка при получении доступных таблиц: {e}")
         return []
+
+# Функция для создания новой сессии
+def get_db_session():
+    """
+    Создает и возвращает новую сессию базы данных.
+    """
+    try:
+        db_session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        return db_session
+    except Exception as e:
+        print(f"Ошибка при создании сессии базы данных: {e}")
+        return None
