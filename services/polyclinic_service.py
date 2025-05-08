@@ -27,32 +27,44 @@ def create_polyclinic(
         raise ValueError(f"Ошибка при создании поликлиники: {str(e)}")
     return new_polyclinic
 
-
-# Получение всех поликлиник с деталями
 def get_all_polyclinics_with_details(db: Session, skip: int = 0, limit: int = 100):
     """
-    Получение всех поликлиник с количеством лабораторий и врачей.
+    Получение всех поликлиник с заменой polyclinicid на название поликлиники.
     """
-    polyclinics = (
-        db.query(Polyclinic)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
-
-    # Формируем результат с дополнительными деталями
-    result = [
+    polyclinics = db.query(Polyclinic).offset(skip).limit(limit).all()
+    return [
         {
             "polyclinicid": polyclinic.polyclinicid,
             "polyclinic_name": polyclinic.polyclinic_name,
-            "polyclinic_address": polyclinic.polyclinic_address,
-            "polyclinic_phone": polyclinic.polyclinic_phone,
-            "laboratory_count": len(polyclinic.laboratories),
-            "doctor_count": len(polyclinic.doctors),
         }
         for polyclinic in polyclinics
     ]
-    return result
+
+# Получение всех поликлиник с деталями
+# def get_all_polyclinics_with_details(db: Session, skip: int = 0, limit: int = 100):
+#     """
+#     Получение всех поликлиник с количеством лабораторий и врачей.
+#     """
+#     polyclinics = (
+#         db.query(Polyclinic)
+#         .offset(skip)
+#         .limit(limit)
+#         .all()
+#     )
+#
+#     # Формируем результат с дополнительными деталями
+#     result = [
+#         {
+#             "polyclinicid": polyclinic.polyclinicid,
+#             "polyclinic_name": polyclinic.polyclinic_name,
+#             "polyclinic_address": polyclinic.polyclinic_address,
+#             "polyclinic_phone": polyclinic.polyclinic_phone,
+#             "laboratory_count": len(polyclinic.laboratories),
+#             "doctor_count": len(polyclinic.doctors),
+#         }
+#         for polyclinic in polyclinics
+#     ]
+#     return result
 
 
 # Поиск поликлиник по названию

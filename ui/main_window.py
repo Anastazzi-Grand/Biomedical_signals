@@ -37,7 +37,6 @@ class MainWindow(QMainWindow):
                 raise Exception("Не удалось создать сессию базы данных.")
 
             accessible_tables = get_user_accessible_tables(db_session, username)
-            print("ДОСТУПНЫЕ ТАБЛИЦЫ В MAIN_WINDOW", accessible_tables)
             if not accessible_tables:
                 raise Exception("Нет доступных таблиц для пользователя.")
 
@@ -45,7 +44,6 @@ class MainWindow(QMainWindow):
             for table_name in accessible_tables:
                 # Удаляем лишние кавычки и пробелы
                 print("TABLE NAME", table_name)
-                clean_table_name = table_name.strip().replace("'", "")
 
                 if table_name == 'patient':
                     tab_content = PatientWidget(authenticate_user(username, password))
@@ -56,8 +54,8 @@ class MainWindow(QMainWindow):
                 # elif table_name == 'diagnosis':
                 #     tab_content = DiagnosisWidget(authenticate_user(username, password))
                 else:
-                    tab_content = QLabel(f"Содержимое таблицы: {clean_table_name}")
-                self.tab_widget.addTab(tab_content, clean_table_name.capitalize())
+                    tab_content = QLabel(f"Содержимое таблицы: {table_name}")
+                self.tab_widget.addTab(tab_content, table_name.capitalize())
         except Exception as e:
             print(f"Ошибка при получении доступных таблиц: {e}")
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить данные: {e}")
