@@ -27,6 +27,13 @@ def create_polyclinic(
         raise ValueError(f"Ошибка при создании поликлиники: {str(e)}")
     return new_polyclinic
 
+def get_polyclinic_by_name(db: Session, name: str):
+    """
+    Получение поликлиники по её названию.
+    """
+    polyclinic = db.query(Polyclinic).filter(Polyclinic.polyclinic_name.ilike(name)).first()
+    return polyclinic
+
 def get_all_polyclinics_with_details(db: Session, skip: int = 0, limit: int = 100):
     """
     Получение всех поликлиник с заменой polyclinicid на название поликлиники.
