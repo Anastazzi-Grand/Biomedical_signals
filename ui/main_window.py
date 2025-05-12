@@ -5,6 +5,7 @@ from ui.widgets.ecs_widget import ECSDataWidget
 from ui.widgets.patient_widget import PatientWidget
 from ui.widgets.pg_widget import PGDataWidget
 from ui.widgets.researcher_widget import ResearcherWidget
+from ui.widgets.sessions_widget import SessionWidget
 
 
 class MainWindow(QMainWindow):
@@ -54,11 +55,13 @@ class MainWindow(QMainWindow):
             # Добавляем вкладки для каждой доступной таблицы
             for table_name in accessible_tables:
                 if table_name == 'patient':
-                    tab_content = PatientWidget(self.db_session)  # Передаем self.db_session
+                    tab_content = PatientWidget(self.db_session)
                 elif table_name == 'ecs_data':
-                    tab_content = ECSDataWidget(self.db_session)  # Передаем self.db_session
+                    tab_content = ECSDataWidget(self.db_session)
                 elif table_name == 'pg_data':
-                    tab_content = PGDataWidget(self.db_session)  # Передаем self.db_session
+                    tab_content = PGDataWidget(self.db_session)
+                elif table_name == 'session':
+                    tab_content = SessionWidget(self.db_session)
                 else:
                     tab_content = QLabel(f"Содержимое таблицы: {table_name}")
                 self.tab_widget.addTab(tab_content, table_name.capitalize())
