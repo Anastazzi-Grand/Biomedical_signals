@@ -3,6 +3,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 import numpy as np
 
+from ui.widgets.plots.epoch_selection_widget import EpochSelectionWidget
 from ui.widgets.plots.filter_selection_widget import FilterSelectionWidget
 
 
@@ -14,6 +15,7 @@ class SignalProcessingWidget(QWidget):
         self.current_step = 0  # Текущий этап обработки
         self.rr_times = []  # Данные RR-интервалов
         self.amplitudes = []  # Данные амплитуд дыхания
+        self.filter_state = {}
         self.init_ui()
 
     def init_ui(self):
@@ -71,112 +73,137 @@ class SignalProcessingWidget(QWidget):
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить данные: {e}")
 
     def show_step(self):
-        """Отображение текущего этапа обработки."""
-        while self.content_layout.count():
-            child = self.content_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+        try:
+            print(f"Отображение этапа {self.current_step}")
 
-        if self.current_step == 0:
-            self.show_initial_data()
-        elif self.current_step == 1:
-            self.show_filter_selection()
-        else:
-            self.show_placeholder()
-        # self.clear_content_layout()
-        #
-        # if self.current_step == 0:
-        #     self.show_initial_data()
-        # elif self.current_step == 1:
-        #     self.show_filter_selection()
-        # else:
-        #     self.show_placeholder()
+            # Сохраняем состояние фильтров перед сменой этапа
+            if hasattr(self, "filter_widget"):
+                self.filter_state = self.filter_widget.get_filter_state()
 
-    def clear_content_layout(self):
-        """Очищает все виджеты из content_layout."""
-        while self.content_layout.count():
-            child = self.content_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-            elif child.layout():
-                self.clear_layout(child.layout())
+            # Скрываем все виджеты
+            for i in range(self.content_layout.count()):
+                widget = self.content_layout.itemAt(i).widget()
+                if widget:
+                    widget.hide()
 
-    def clear_layout(self, layout):
-        """Рекурсивно удаляет все элементы из макета."""
-        while layout.count():
-            item = layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.setParent(None)
-                widget.deleteLater()
+            # Показываем нужный виджет
+            if self.current_step == 0:
+                print("Показываем исходные данные")
+                self.show_initial_data()
+            elif self.current_step == 1:
+                print("Показываем выбор фильтров")
+                self.show_filter_selection()
+                # Восстанавливаем состояние фильтров
+                if hasattr(self, "filter_widget") and self.filter_state:
+                    self.filter_widget.set_filter_state(self.filter_state)
+            elif self.current_step == 2:
+                print("Показываем выбор эпохи")
+                self.show_epoch_selection()
             else:
-                sub_layout = item.layout()
-                self.clear_layout(sub_layout)
-                layout.removeItem(sub_layout)
+                print("Показываем заполнитель")
+                self.show_placeholder()
+        except Exception as e:
+            print(f"Ошибка в show_step: {e}")
 
     def show_filter_selection(self):
         """Отображение виджета для выбора фильтров."""
-        filter_widget = FilterSelectionWidget(
-            self.db_session,
-            self.rr_times,  # Передаем данные RR-интервалов
-            self.amplitudes  # Передаем данные амплитуд дыхания
-        )
-        self.content_layout.addWidget(filter_widget)
+        if not hasattr(self, "filter_widget"):
+            print("Создаем новый FilterSelectionWidget")
+            self.filter_widget = FilterSelectionWidget(
+                self.db_session,
+                self.rr_times,  # Передаем данные RR-интервалов
+                self.amplitudes  # Передаем данные амплитуд дыхания
+            )
+            self.content_layout.addWidget(self.filter_widget)
+        else:
+            print("Используем существующий FilterSelectionWidget")
+
+        # Показываем виджет
+        self.filter_widget.show()
+
+    def show_epoch_selection(self):
+        """Отображение виджета для выбора эпохи."""
+        filtered_rr_times, filtered_amplitudes = self.filter_widget.get_filtered_data()
+        if filtered_rr_times is None or filtered_amplitudes is None:
+            QMessageBox.warning(
+                self,
+                "Внимание",
+                "Фильтры не были применены. Примените фильтры перед выбором эпохи."
+            )
+            return
+
+        print("Состояние фильтров:")
+        for i, button in enumerate(self.filter_widget.lowpass_radio_buttons):
+            print(f"ФНЧ {button.text()} выбран: {button.isChecked()}")
+
+        if not hasattr(self, "epoch_widget"):
+            print("Создаем новый EpochSelectionWidget")
+            self.epoch_widget = EpochSelectionWidget(
+                self.db_session,
+                filtered_rr_times,
+                filtered_amplitudes
+            )
+            self.content_layout.addWidget(self.epoch_widget)
+        else:
+            print("Используем существующий EpochSelectionWidget")
+            self.epoch_widget.update_data(filtered_rr_times, filtered_amplitudes)
+
+        self.epoch_widget.show()
 
     def show_initial_data(self):
         """Отображение исходных данных и корреляции."""
-        # Создаем фигуру, если она еще не создана
-        if not hasattr(self, "figure"):
+        if not hasattr(self, "canvas"):
+            print("Создаем новый график")
+            # Вычитание постоянных составляющих
+            rr_mean = np.mean(self.rr_times)
+            amplitude_mean = np.mean(self.amplitudes)
+
+            rr_centered = self.rr_times - rr_mean
+            amplitude_centered = self.amplitudes - amplitude_mean
+
+            # Корреляционные значения
+            corr_raw = np.corrcoef(self.rr_times, self.amplitudes)[0, 1]
+            corr_centered = np.corrcoef(rr_centered, amplitude_centered)[0, 1]
+
+            # Создаем фигуру для графиков
             self.figure = plt.figure(figsize=(12, 6))
+
+            # График 1: Исходные данные
+            ax1 = self.figure.add_subplot(121)
+            ax1.plot(self.rr_times, label="RR_time (ЭКС)", color="red")
+            ax1.plot(self.amplitudes, label="Amplitude (ПГ)", color="blue")
+            ax1.set_title("Исходные данные")
+            ax1.set_xlabel("Индекс")
+            ax1.set_ylabel("Значение")
+            ax1.legend()
+            ax1.grid(True)
+
+            # График 2: Обработанные данные
+            ax2 = self.figure.add_subplot(122)
+            ax2.plot(rr_centered, label="RR_time (обработанный)", color="red")
+            ax2.plot(amplitude_centered, label="Amplitude (обработанный)", color="blue")
+            ax2.set_title("Обработанные данные")
+            ax2.set_xlabel("Индекс")
+            ax2.set_ylabel("Значение")
+            ax2.legend()
+            ax2.grid(True)
+
+            # Отображение графиков
             self.canvas = FigureCanvas(self.figure)
-
-        # Вычитание постоянных составляющих
-        rr_mean = np.mean(self.rr_times)
-        amplitude_mean = np.mean(self.amplitudes)
-
-        rr_centered = self.rr_times - rr_mean
-        amplitude_centered = self.amplitudes - amplitude_mean
-
-        # Корреляционные значения
-        corr_raw = np.corrcoef(self.rr_times, self.amplitudes)[0, 1]
-        corr_centered = np.corrcoef(rr_centered, amplitude_centered)[0, 1]
-
-        # Очищаем фигуру
-        self.figure.clear()
-
-        # График 1: Исходные данные
-        ax1 = self.figure.add_subplot(121)
-        ax1.plot(self.rr_times, label="RR_time (ЭКС)", color="blue")
-        ax1.plot(self.amplitudes, label="Amplitude (ПГ)", color="red")
-        ax1.set_title("Исходные данные")
-        ax1.set_xlabel("Индекс")
-        ax1.set_ylabel("Значение")
-        ax1.legend()
-        ax1.grid(True)
-
-        # График 2: Обработанные данные
-        ax2 = self.figure.add_subplot(122)
-        ax2.plot(rr_centered, label="RR_time (обработанный)", color="blue")
-        ax2.plot(amplitude_centered, label="Amplitude (обработанный)", color="red")
-        ax2.set_title("Обработанные данные")
-        ax2.set_xlabel("Индекс")
-        ax2.set_ylabel("Значение")
-        ax2.legend()
-        ax2.grid(True)
-
-        # Отображение графиков
-        self.canvas.draw()
-
-        # Добавляем холст в макет, если он еще не добавлен
-        if self.canvas not in [child.widget() for child in self.content_layout.children()]:
             self.content_layout.addWidget(self.canvas)
 
-        # Корреляционные значения
-        correlation_label = QLabel(
-            f"Корреляция исходных данных: {corr_raw:.4f}\n"
-            f"Корреляция обработанных данных: {corr_centered:.4f}"
-        )
-        self.content_layout.addWidget(correlation_label)
+            # Корреляционные значения
+            self.correlation_label = QLabel(
+                f"Корреляция исходных данных: {corr_raw:.4f}\n"
+                f"Корреляция обработанных данных: {corr_centered:.4f}"
+            )
+            self.content_layout.addWidget(self.correlation_label)
+        else:
+            print("Используем существующий график")
+
+        # Показываем виджеты
+        self.canvas.show()
+        self.correlation_label.show()
 
     def show_placeholder(self):
         """Заполнитель для других этапов."""
@@ -185,16 +212,23 @@ class SignalProcessingWidget(QWidget):
 
     def go_to_next_step(self):
         """Переход к следующему этапу."""
+        if self.current_step == 1:  # Переход с этапа 2 на этап 3
+            if not hasattr(self.filter_widget, "filtered_rr_times") or not hasattr(self.filter_widget,
+                                                                                   "filtered_amplitudes"):
+                QMessageBox.warning(self, "Внимание",
+                                    "Фильтры не были применены. Примените фильтры перед выбором эпохи.")
+                return
         self.current_step += 1
-        print(f"Переход к этапу {self.current_step}")
         self.prev_button.setEnabled(True)
         self.step_label.setText(f"Этап {self.current_step + 1}: Следующий этап")
-        if self.current_step == 1:
+        if self.current_step == 2:  # Если это последний этап
             self.next_button.setEnabled(False)
         self.show_step()
 
     def go_to_previous_step(self):
         """Возврат к предыдущему этапу."""
+        if self.current_step <= 0:  # Минимальный этап
+            return
         self.current_step -= 1
         print(f"Возврат к этапу {self.current_step}")
         self.next_button.setEnabled(True)

@@ -35,10 +35,10 @@ class RawDataPlotWidget(QWidget):
         ax = self.figure.add_subplot(111)
 
         # Построение графика ЭКС
-        ax.plot(x_ecs, rr_times, label="RR_time (ЭКС)", color="blue")
+        ax.plot(x_ecs, rr_times, label="RR_time (ЭКС)", color="red")
 
         # Построение графика сигнала дыхания
-        ax.plot(x_pg, amplitudes, label="Amplitude (ПГ)", color="red")
+        ax.plot(x_pg, amplitudes, label="Amplitude (ПГ)", color="blue")
 
         # Настройки графика
         ax.set_title("Сырые данные: ЭКС и сигнал дыхания")

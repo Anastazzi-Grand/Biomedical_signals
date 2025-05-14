@@ -52,7 +52,7 @@ def create_session(
 
 
 # Получение всех сеансов с деталями
-def get_sessions_with_details(db: Session, skip: int = 0, limit: int = 100):
+def get_sessions_with_details(db: Session):
     """
     Получение всех сеансов с заменой ID на читаемые значения.
     """
@@ -61,8 +61,6 @@ def get_sessions_with_details(db: Session, skip: int = 0, limit: int = 100):
         .join(Patient, Sessions.patientid == Patient.patientid)
         .join(Doctor, Sessions.doctorid == Doctor.doctorid)
         .join(Laboratory, Sessions.labid == Laboratory.labid)
-        .offset(skip)
-        .limit(limit)
         .all()
     )
 

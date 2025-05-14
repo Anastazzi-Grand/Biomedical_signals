@@ -206,20 +206,20 @@ class SessionWidget(QWidget):
 
     def get_all_patients(self):
         """Получение списка всех пациентов."""
-        from services.sessions_service import get_sessions_with_details
-        sessions = get_sessions_with_details(self.db_session)
+        from services.patient_service import get_patients_with_details
+        sessions = get_patients_with_details(self.db_session)
         return list(set(session["patient_fio"] for session in sessions))
 
     def get_all_doctors(self):
         """Получение списка всех врачей."""
-        from services.sessions_service import get_sessions_with_details
-        sessions = get_sessions_with_details(self.db_session)
+        from services.doctor_service import get_doctors_with_details
+        sessions = get_doctors_with_details(self.db_session)
         return list(set(session["doctor_fio"] for session in sessions))
 
     def get_all_labs(self):
         """Получение списка всех лабораторий."""
-        from services.sessions_service import get_sessions_with_details
-        sessions = get_sessions_with_details(self.db_session)
+        from services.laboratory_service import get_all_laboratories_with_details
+        sessions = get_all_laboratories_with_details(self.db_session)
         return list(set(session["lab_name"] for session in sessions))
 
     def delete_selected_session(self):

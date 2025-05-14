@@ -51,9 +51,9 @@ class ECSDataWidget(QWidget):
     def load_patients(self):
         """Загрузка списка пациентов для выпадающего списка."""
         try:
-            from services.sessions_service import get_sessions_with_details
+            from services.patient_service import get_patients_with_details
 
-            sessions = get_sessions_with_details(self.db_session)
+            sessions = get_patients_with_details(self.db_session)
             patients = list(set(session["patient_fio"] for session in sessions))
             self.patient_combo.addItems(patients)
         except Exception as e:

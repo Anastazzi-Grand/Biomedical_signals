@@ -27,7 +27,7 @@ def create_pg_data(db: Session, session_id: int, d1: int, d2: int, amplitude: fl
 
 
 # Получение всех записей PG_data с заменой внешних ключей на читаемые значения
-def get_pg_data_with_details(db: Session, skip: int = 0, limit: int = 100):
+def get_pg_data_with_details(db: Session, skip: int = 0):
     """
     Получение всех записей PG_data с заменой sessionid на детали сессии.
     """
@@ -35,7 +35,6 @@ def get_pg_data_with_details(db: Session, skip: int = 0, limit: int = 100):
         db.query(PG_data)
         .options(joinedload(PG_data.session))
         .offset(skip)
-        .limit(limit)
         .all()
     )
 

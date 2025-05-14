@@ -40,7 +40,7 @@ def create_patient(
 
 
 # Получение всех пациентов с деталями
-def get_patients_with_details(db: Session, skip: int = 0, limit: int = 100):
+def get_patients_with_details(db: Session, skip: int = 0):
     """
     Получение всех пациентов с заменой polyclinicid на название поликлиники.
     """
@@ -48,7 +48,6 @@ def get_patients_with_details(db: Session, skip: int = 0, limit: int = 100):
         db.query(Patient)
         .join(Polyclinic, Patient.polyclinicid == Polyclinic.polyclinicid)
         .offset(skip)
-        .limit(limit)
         .all()
     )
 

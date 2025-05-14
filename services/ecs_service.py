@@ -27,7 +27,7 @@ def create_ecs_data(db: Session, session_id: int, rr_length: int, rr_time: float
 
 
 # Получение всех записей ECS_data с заменой внешних ключей на читаемые значения
-def get_ecs_data_with_details(db: Session, skip: int = 0, limit: int = 100):
+def get_ecs_data_with_details(db: Session, skip: int = 0):
     """
     Получение всех записей ECS_data с заменой sessionid на детали сессии.
     """
@@ -35,7 +35,6 @@ def get_ecs_data_with_details(db: Session, skip: int = 0, limit: int = 100):
         db.query(ECS_data)
         .options(joinedload(ECS_data.session))
         .offset(skip)
-        .limit(limit)
         .all()
     )
 
