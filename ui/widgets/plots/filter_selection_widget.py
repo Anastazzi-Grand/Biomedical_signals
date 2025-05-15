@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QRadioButton, QLabel, QCheckBox, QLineEdit, \
-    QMessageBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QCheckBox, QLineEdit, \
+    QMessageBox, QButtonGroup
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,41 +27,44 @@ class FilterSelectionWidget(QWidget):
 
     def init_ui(self):
         layout = QVBoxLayout()
+
         # Заголовок
         title_label = QLabel("Выберите фильтры:")
         layout.addWidget(title_label)
 
-        # Радиокнопки для выбора ФНЧ
-        lowpass_butter_radio_buttons = []
-        lowpass_butter_group = QHBoxLayout()
+        # Создаем группу для чекбоксов ФНЧ
+        self.lowpass_group = QButtonGroup(self)
+        self.lowpass_group.setExclusive(True)  # Разрешает выбор только одного чекбокса
 
+        lowpass_checkboxes = []
+        lowpass_butter_group = QHBoxLayout()
         for cutoff in self.lowpass_cutoffs:
-            radio_button = QRadioButton(f"ФНЧ ({cutoff} Гц)")
-            lowpass_butter_group.addWidget(radio_button)
-            lowpass_butter_radio_buttons.append(radio_button)
+            checkbox = QCheckBox(f"ФНЧ ({cutoff} Гц)")
+            lowpass_butter_group.addWidget(checkbox)
+            lowpass_checkboxes.append(checkbox)
+            self.lowpass_group.addButton(checkbox)  # Добавляем в группу
 
         # Добавляем группу ФНЧ
         layout.addLayout(lowpass_butter_group)
 
-        # Логика для снятия выбора
-        for radio_button in lowpass_butter_radio_buttons:
-            radio_button.toggled.connect(lambda checked, btn=radio_button: self.toggle_lowpass_filter(btn))
-
         # Группа для скользящего окна
-        moving_average_radio_buttons = []
+        moving_average_checkboxes = []
         moving_average_group = QHBoxLayout()
         for size in self.window_sizes:
-            radio_button = QRadioButton(f"Скользящее окно (окно {size})")
-            moving_average_group.addWidget(radio_button)
-            moving_average_radio_buttons.append(radio_button)
+            checkbox = QCheckBox(f"Скользящее окно (окно {size})")
+            moving_average_group.addWidget(checkbox)
+            moving_average_checkboxes.append(checkbox)
+            self.lowpass_group.addButton(checkbox)  # Добавляем в ту же группу
+
         layout.addLayout(moving_average_group)
 
-        # Логика для снятия выбора
-        for radio_button in moving_average_radio_buttons:
-            radio_button.toggled.connect(lambda checked, btn=radio_button: self.toggle_lowpass_filter(btn))
-
         # Объединяем группы ФНЧ в одну
-        self.lowpass_radio_buttons = lowpass_butter_radio_buttons + moving_average_radio_buttons
+        self.lowpass_checkboxes = lowpass_checkboxes + moving_average_checkboxes
+
+        # Кнопка "Убрать выбор ФНЧ"
+        reset_button = QPushButton("Убрать выбор ФНЧ")
+        reset_button.clicked.connect(self.reset_lowpass_selection)  # Подключаем обработчик
+        layout.addWidget(reset_button)
 
         # Кнопка для удаления артефактов
         self.remove_artifacts_checkbox = QCheckBox("Удаление артефактов")
@@ -155,7 +158,6 @@ class FilterSelectionWidget(QWidget):
                 # Получаем значения из QLineEdit
                 start_index = int(self.start_index_input.text())
                 end_index = int(self.end_index_input.text())
-
                 # Проверяем корректность введенных значений
                 if start_index < 0 or end_index < 0:
                     raise ValueError("Индексы должны быть неотрицательными.")
@@ -163,7 +165,6 @@ class FilterSelectionWidget(QWidget):
                     raise ValueError("Конечный индекс должен быть больше начального.")
                 if start_index >= len(rr_times) or end_index > len(rr_times):
                     raise ValueError("Индексы выходят за пределы длины сигнала.")
-
                 # Обрезаем сигналы
                 rr_times = rr_times[start_index:end_index]
                 amplitudes = amplitudes[start_index:end_index]
@@ -171,12 +172,11 @@ class FilterSelectionWidget(QWidget):
                 QMessageBox.warning(self, "Ошибка", f"Некорректные значения для удаления артефактов: {e}")
                 return
 
-        # Применение ФНЧ
+        # Проверяем выбор ФНЧ
         selected_lowpass_type = None
         selected_lowpass_param = None
-
-        for i, button in enumerate(self.lowpass_radio_buttons):
-            if button.isChecked():
+        for i, checkbox in enumerate(self.lowpass_checkboxes):
+            if checkbox.isChecked():
                 if i < len(self.lowpass_cutoffs):  # ФНЧ (Баттерворта)
                     selected_lowpass_type = "butter"
                     selected_lowpass_param = self.lowpass_cutoffs[i]
@@ -186,6 +186,7 @@ class FilterSelectionWidget(QWidget):
                     selected_lowpass_param = selected_window_size
                 break
 
+        # Применяем выбранный ФНЧ, только если он выбран
         if selected_lowpass_type == "butter":
             rr_times = self.apply_lowpass_filter(rr_times, cutoff=selected_lowpass_param, fs=self.fs)
             amplitudes = self.apply_lowpass_filter(amplitudes, cutoff=selected_lowpass_param, fs=self.fs)
@@ -197,13 +198,11 @@ class FilterSelectionWidget(QWidget):
         if self.highpass_checkbox.isChecked():
             rr_times = self.apply_highpass_filter(rr_times, cutoff=0.05, fs=self.fs)
             amplitudes = self.apply_highpass_filter(amplitudes, cutoff=0.05, fs=self.fs)
-
         if self.notch_checkbox.isChecked():
             rr_times = self.apply_notch_filter(rr_times, notch_freq=50, fs=self.fs)
             amplitudes = self.apply_notch_filter(amplitudes, notch_freq=50, fs=self.fs)
-
         if self.center_checkbox.isChecked():
-            rr_times = rr_times - np.mean(rr_times)
+            rr_times = (rr_times - np.mean(rr_times)) / np.std(rr_times)
             amplitudes = amplitudes - np.mean(amplitudes)
 
         # Сохраняем отфильтрованные данные
@@ -251,11 +250,13 @@ class FilterSelectionWidget(QWidget):
             'center': self.center_checkbox.isChecked(),
             'window_size': None
         }
-        for i, button in enumerate(self.lowpass_radio_buttons):
-            if button.isChecked():
-                if i < len(self.lowpass_cutoffs):
+
+        # Проверяем выбор ФНЧ среди чекбоксов
+        for i, checkbox in enumerate(self.lowpass_checkboxes):
+            if checkbox.isChecked():
+                if i < len(self.lowpass_cutoffs):  # ФНЧ (Баттерворта)
                     state['lowpass'] = self.lowpass_cutoffs[i]
-                else:
+                else:  # Скользящее окно
                     state['window_size'] = self.window_sizes[i - len(self.lowpass_cutoffs)]
                 break
 
@@ -263,12 +264,24 @@ class FilterSelectionWidget(QWidget):
 
     def set_filter_state(self, state):
         """Устанавливает состояние фильтров."""
-        for i, button in enumerate(self.lowpass_radio_buttons):
-            if i < len(self.lowpass_cutoffs):
-                button.setChecked(state['lowpass'] == self.lowpass_cutoffs[i])
-            else:
-                button.setChecked(state['window_size'] == self.window_sizes[i - len(self.lowpass_cutoffs)])
+        # Сначала снимаем все выделения
+        self.lowpass_group.setExclusive(False)
+        for checkbox in self.lowpass_checkboxes:
+            checkbox.setChecked(False)
 
+        # Устанавливаем нужные чекбоксы
+        for i, checkbox in enumerate(self.lowpass_checkboxes):
+            if i < len(self.lowpass_cutoffs):  # ФНЧ (Баттерворта)
+                if state['lowpass'] == self.lowpass_cutoffs[i]:
+                    checkbox.setChecked(True)
+            else:  # Скользящее окно
+                if state['window_size'] == self.window_sizes[i - len(self.lowpass_cutoffs)]:
+                    checkbox.setChecked(True)
+
+        # Возвращаем эксклюзивный режим
+        self.lowpass_group.setExclusive(True)
+
+        # Устанавливаем остальные фильтры
         self.highpass_checkbox.setChecked(state['highpass'])
         self.notch_checkbox.setChecked(state['notch'])
         self.center_checkbox.setChecked(state['center'])
@@ -326,11 +339,11 @@ class FilterSelectionWidget(QWidget):
         except ValueError as e:
             QMessageBox.warning(self, "Ошибка", f"Некорректные значения для удаления артефактов: {e}")
 
-    def toggle_lowpass_filter(self, button):
-        """Снятие выбора ФНЧ."""
-        if not button.isChecked():
-            # Если кнопка отключена, снимаем выбор
-            for other_button in self.lowpass_radio_buttons:
-                if other_button is not button and other_button.isChecked():
-                    other_button.setChecked(False)
-
+    def reset_lowpass_selection(self):
+        """Снимает выделение со всех чекбоксов ФНЧ."""
+        # Временно отключаем эксклюзивный режим
+        self.lowpass_group.setExclusive(False)
+        for checkbox in self.lowpass_checkboxes:
+            checkbox.setChecked(False)
+        # Возвращаем эксклюзивный режим
+        self.lowpass_group.setExclusive(True)
