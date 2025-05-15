@@ -1,4 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QRadioButton, QLabel, QCheckBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QRadioButton, QLabel, QCheckBox, QLineEdit, \
+    QMessageBox
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,16 +14,13 @@ class FilterSelectionWidget(QWidget):
         self.rr_times = ecs_data
         self.amplitudes = pg_data
         self.fs = 200  # Частота дискретизации
-        self.filtered_rr_times = None  # Для хранения отфильтрованных данных
-        self.filtered_amplitudes = None
+
+        # Инициализация отфильтрованных данных
+        self.filtered_rr_times = np.array(self.rr_times)
+        self.filtered_amplitudes = np.array(self.amplitudes)
 
         # Определение диапазонов фильтров как атрибутов класса
-        self.lowpass_cutoffs = [1.0, 2.0, 30.0, 50.0]  # Возможные значения частоты среза для ФНЧ
-        self.bandpass_ranges = {
-            "HF": (0.15, 0.4),
-            "LF": (0.04, 0.15),
-            "VLF": (0.003, 0.04)
-        }  # Диапазоны полосовых фильтров
+        self.lowpass_cutoffs = [1.0, 2.0, 5.0, 10.0]  # Возможные значения частоты среза для ФНЧ
         self.window_sizes = [5, 10, 20]  # Размеры окна для скользящего окна
 
         self.init_ui()
@@ -33,14 +31,21 @@ class FilterSelectionWidget(QWidget):
         title_label = QLabel("Выберите фильтры:")
         layout.addWidget(title_label)
 
-        # Группа для ФНЧ (метод Баттерворта)
+        # Радиокнопки для выбора ФНЧ
         lowpass_butter_radio_buttons = []
         lowpass_butter_group = QHBoxLayout()
+
         for cutoff in self.lowpass_cutoffs:
             radio_button = QRadioButton(f"ФНЧ ({cutoff} Гц)")
             lowpass_butter_group.addWidget(radio_button)
             lowpass_butter_radio_buttons.append(radio_button)
+
+        # Добавляем группу ФНЧ
         layout.addLayout(lowpass_butter_group)
+
+        # Логика для снятия выбора
+        for radio_button in lowpass_butter_radio_buttons:
+            radio_button.toggled.connect(lambda checked, btn=radio_button: self.toggle_lowpass_filter(btn))
 
         # Группа для скользящего окна
         moving_average_radio_buttons = []
@@ -51,18 +56,28 @@ class FilterSelectionWidget(QWidget):
             moving_average_radio_buttons.append(radio_button)
         layout.addLayout(moving_average_group)
 
+        # Логика для снятия выбора
+        for radio_button in moving_average_radio_buttons:
+            radio_button.toggled.connect(lambda checked, btn=radio_button: self.toggle_lowpass_filter(btn))
+
         # Объединяем группы ФНЧ в одну
         self.lowpass_radio_buttons = lowpass_butter_radio_buttons + moving_average_radio_buttons
 
-        # Группа для полосового фильтра
-        self.bandpass_checkboxes = []
+        # Кнопка для удаления артефактов
+        self.remove_artifacts_checkbox = QCheckBox("Удаление артефактов")
+        layout.addWidget(self.remove_artifacts_checkbox)
 
-        bandpass_group = QHBoxLayout()
-        for name in self.bandpass_ranges.keys():
-            checkbox = QCheckBox(name)
-            bandpass_group.addWidget(checkbox)
-            self.bandpass_checkboxes.append(checkbox)
-        layout.addLayout(bandpass_group)
+        # QLineEdit для ввода начального и конечного индексов
+        self.start_index_input = QLineEdit()
+        self.end_index_input = QLineEdit()
+
+        # Добавляем эти поля в интерфейс
+        indices_layout = QHBoxLayout()
+        indices_layout.addWidget(QLabel("Начальный индекс:"))
+        indices_layout.addWidget(self.start_index_input)
+        indices_layout.addWidget(QLabel("Конечный индекс:"))
+        indices_layout.addWidget(self.end_index_input)
+        layout.addLayout(indices_layout)
 
         # Другие фильтры
         self.highpass_checkbox = QCheckBox("Фильтр верхних частот (ФВЧ)")
@@ -95,21 +110,29 @@ class FilterSelectionWidget(QWidget):
         """Отображение данных на графике."""
         self.figure.clear()
 
-        # Первый график (шире)
-        ax1 = self.figure.add_subplot(131)
-        ax1.plot(self.rr_times, label="RR_time (ЭКС)", color="red")
-        ax1.plot(self.amplitudes, label="Amplitude (ПГ)", color="blue")
-        ax1.set_title("Сигналы")
+        # Проверяем, есть ли данные для отображения
+        if self.filtered_rr_times is None or self.filtered_amplitudes is None:
+            print("Ошибка: Отфильтрованные данные не инициализированы.")
+            return
+
+        # Первый график
+        ax1 = self.figure.add_subplot(121)
+        ax1.plot(self.filtered_rr_times, label="RR_time (обработанный)", color="red",
+                 linewidth=1)
+        ax1.plot(self.filtered_amplitudes, label="Amplitude (обработанный)", color="blue",
+                 linewidth=1)
+        ax1.set_title("Обработанные сигналы")
         ax1.legend()
         ax1.grid(True)
 
         # Второй график (спектральный анализ)
-        ax2 = self.figure.add_subplot(132)
-        freqs_rr, spectrum_rr = self.compute_spectrum(self.rr_times)
-        freqs_amp, spectrum_amp = self.compute_spectrum(self.amplitudes)
+        ax2 = self.figure.add_subplot(122)
+        freqs_rr, spectrum_rr = self.compute_spectrum(self.filtered_rr_times)
+        freqs_amp, spectrum_amp = self.compute_spectrum(self.filtered_amplitudes)
 
-        ax2.plot(freqs_rr, spectrum_rr, label="RR_time (спектр)", color="red")
-        ax2.plot(freqs_amp, spectrum_amp, label="Amplitude (спектр)", color="blue")
+        ax2.plot(freqs_rr, spectrum_rr, label="RR_time (спектр)", color="red", linewidth=1)
+        ax2.plot(freqs_amp, spectrum_amp, label="Amplitude (спектр)", color="blue",
+                 linewidth=1)
         ax2.set_title("Спектральный анализ")
         ax2.set_xlabel("Частота (Гц)")
         ax2.set_ylabel("Амплитуда")
@@ -119,13 +142,6 @@ class FilterSelectionWidget(QWidget):
         ymin, ymax = ax2.get_xlim()  # Получаем текущие пределы оси Y
         ax2.set_xlim(ymin, ymax / 2)  # Устанавливаем новые пределы, уменьшенные в 2 раза
 
-        # Третий график (полосовой фильтр)
-        ax3 = self.figure.add_subplot(133)
-        ax3.set_title("Результаты полосового фильтра")
-        ax3.set_xlabel("Частота (Гц)")
-        ax3.set_ylabel("Амплитуда")
-        ax3.grid(True)
-
         self.canvas.draw()
 
     def apply_filters(self):
@@ -133,11 +149,32 @@ class FilterSelectionWidget(QWidget):
         rr_times = np.array(self.rr_times)
         amplitudes = np.array(self.amplitudes)
 
-        # 1. Применение ФНЧ
+        # Проверяем, выбрано ли удаление артефактов
+        if self.remove_artifacts_checkbox.isChecked():
+            try:
+                # Получаем значения из QLineEdit
+                start_index = int(self.start_index_input.text())
+                end_index = int(self.end_index_input.text())
+
+                # Проверяем корректность введенных значений
+                if start_index < 0 or end_index < 0:
+                    raise ValueError("Индексы должны быть неотрицательными.")
+                if end_index <= start_index:
+                    raise ValueError("Конечный индекс должен быть больше начального.")
+                if start_index >= len(rr_times) or end_index > len(rr_times):
+                    raise ValueError("Индексы выходят за пределы длины сигнала.")
+
+                # Обрезаем сигналы
+                rr_times = rr_times[start_index:end_index]
+                amplitudes = amplitudes[start_index:end_index]
+            except ValueError as e:
+                QMessageBox.warning(self, "Ошибка", f"Некорректные значения для удаления артефактов: {e}")
+                return
+
+        # Применение ФНЧ
         selected_lowpass_type = None
         selected_lowpass_param = None
 
-        # Проверяем, какой ФНЧ выбран
         for i, button in enumerate(self.lowpass_radio_buttons):
             if button.isChecked():
                 if i < len(self.lowpass_cutoffs):  # ФНЧ (Баттерворта)
@@ -156,19 +193,7 @@ class FilterSelectionWidget(QWidget):
             rr_times = self.moving_average_filter(rr_times, window_size=selected_lowpass_param)
             amplitudes = self.moving_average_filter(amplitudes, window_size=selected_lowpass_param)
 
-        # 2. Применение полосового фильтра
-        bandpass_filtered_rr_times = rr_times.copy()
-        bandpass_filtered_amplitudes = amplitudes.copy()
-
-        for i, checkbox in enumerate(self.bandpass_checkboxes):
-            if checkbox.isChecked():
-                name, (lowcut, highcut) = list(self.bandpass_ranges.items())[i]
-                bandpass_filtered_rr_times = self.apply_bandpass_filter(bandpass_filtered_rr_times, lowcut=lowcut,
-                                                                        highcut=highcut, fs=self.fs)
-                bandpass_filtered_amplitudes = self.apply_bandpass_filter(bandpass_filtered_amplitudes, lowcut=lowcut,
-                                                                          highcut=highcut, fs=self.fs)
-
-        # 3. Применение других фильтров
+        # Применение других фильтров
         if self.highpass_checkbox.isChecked():
             rr_times = self.apply_highpass_filter(rr_times, cutoff=0.05, fs=self.fs)
             amplitudes = self.apply_highpass_filter(amplitudes, cutoff=0.05, fs=self.fs)
@@ -185,52 +210,12 @@ class FilterSelectionWidget(QWidget):
         self.filtered_rr_times = rr_times
         self.filtered_amplitudes = amplitudes
 
-        # Сохраняем результаты полосового фильтра
-        self.bandpass_filtered_rr_times = bandpass_filtered_rr_times
-        self.bandpass_filtered_amplitudes = bandpass_filtered_amplitudes
+        # Перерисовываем графики
+        self.plot_data()
 
         # Вычисляем корреляцию
         corr_raw = np.corrcoef(self.rr_times, self.amplitudes)[0, 1]
         corr_centered = np.corrcoef(rr_times, amplitudes)[0, 1]
-
-        # Обновление графика
-        self.figure.clear()
-
-        # Первый график
-        ax1 = self.figure.add_subplot(131)
-        ax1.plot(rr_times, label="RR_time (обработанный)", color="red")
-        ax1.plot(amplitudes, label="Amplitude (обработанный)", color="blue")
-        ax1.set_title("Обработанные сигналы")
-        ax1.legend()
-        ax1.grid(True)
-
-        # Второй график
-        ax2 = self.figure.add_subplot(132)
-        freqs_rr, spectrum_rr = self.compute_spectrum(rr_times)
-        freqs_amp, spectrum_amp = self.compute_spectrum(amplitudes)
-
-        ax2.plot(freqs_rr, spectrum_rr, label="RR_time (спектр)", color="red")
-        ax2.plot(freqs_amp, spectrum_amp, label="Amplitude (спектр)", color="blue")
-        ax2.set_title("Спектральный анализ")
-        ax2.set_xlabel("Частота (Гц)")
-        ax2.set_ylabel("Амплитуда")
-        ax2.legend()
-        ax2.grid(True)
-
-        ymin, ymax = ax2.get_xlim()  # Получаем текущие пределы оси Y
-        ax2.set_xlim(ymin, ymax / 2)  # Устанавливаем новые пределы, уменьшенные в 2 раза
-
-        # Третий график (полосовой фильтр)
-        ax3 = self.figure.add_subplot(133)
-        ax3.plot(self.bandpass_filtered_rr_times, label="HF (RR_time)", linestyle="--", color="red")
-        ax3.plot(self.bandpass_filtered_amplitudes, label="HF (Amplitude)", linestyle="-.", color="blue")
-        ax3.set_title("Результаты полосового фильтра")
-        ax3.set_xlabel("Индекс")
-        ax3.set_ylabel("Значение")
-        ax3.legend()
-        ax3.grid(True)
-
-        self.canvas.draw()
 
         # Обновляем метку с корреляцией
         self.correlation_label.setText(
@@ -249,15 +234,6 @@ class FilterSelectionWidget(QWidget):
         filtered_data = np.concatenate((padding, filtered_data, padding))
         return filtered_data
 
-    @staticmethod
-    def apply_bandpass_filter(data, lowcut, highcut, fs, order=5):
-        """Применение полосового фильтра."""
-        nyquist = 0.5 * fs
-        low = lowcut / nyquist
-        high = highcut / nyquist
-        b, a = butter(order, [low, high], btype='band', analog=False)
-        return filtfilt(b, a, data)
-
     def get_filtered_data(self):
         if self.filtered_rr_times is None or self.filtered_amplitudes is None:
             print("Фильтры не были применены")
@@ -273,7 +249,6 @@ class FilterSelectionWidget(QWidget):
             'highpass': self.highpass_checkbox.isChecked(),
             'notch': self.notch_checkbox.isChecked(),
             'center': self.center_checkbox.isChecked(),
-            'bandpass': [],
             'window_size': None
         }
         for i, button in enumerate(self.lowpass_radio_buttons):
@@ -284,10 +259,6 @@ class FilterSelectionWidget(QWidget):
                     state['window_size'] = self.window_sizes[i - len(self.lowpass_cutoffs)]
                 break
 
-        for i, checkbox in enumerate(self.bandpass_checkboxes):
-            if checkbox.isChecked():
-                state['bandpass'].append(list(self.bandpass_ranges.keys())[i])
-
         return state
 
     def set_filter_state(self, state):
@@ -297,9 +268,6 @@ class FilterSelectionWidget(QWidget):
                 button.setChecked(state['lowpass'] == self.lowpass_cutoffs[i])
             else:
                 button.setChecked(state['window_size'] == self.window_sizes[i - len(self.lowpass_cutoffs)])
-
-        for i, checkbox in enumerate(self.bandpass_checkboxes):
-            checkbox.setChecked(list(self.bandpass_ranges.keys())[i] in state['bandpass'])
 
         self.highpass_checkbox.setChecked(state['highpass'])
         self.notch_checkbox.setChecked(state['notch'])
@@ -335,3 +303,34 @@ class FilterSelectionWidget(QWidget):
         normal_notch_freq = notch_freq / nyquist
         b, a = signal.iirnotch(normal_notch_freq, quality_factor)
         return filtfilt(b, a, data)
+
+    def remove_artifacts(self):
+        """Удаление артефактов из сигналов."""
+        try:
+            # Получаем значения из QLineEdit
+            start_index = int(self.start_index_input.text())
+            end_index = int(self.end_index_input.text())
+
+            # Проверяем корректность введенных значений
+            if start_index < 0 or end_index < 0:
+                raise ValueError("Индексы должны быть неотрицательными.")
+            if end_index <= start_index:
+                raise ValueError("Конечный индекс должен быть больше начального.")
+            if start_index >= len(self.filtered_rr_times) or end_index > len(self.filtered_rr_times):
+                raise ValueError("Индексы выходят за пределы длины сигнала.")
+
+            # Обрезаем сигналы
+            self.filtered_rr_times = self.filtered_rr_times[start_index:end_index]
+            self.filtered_amplitudes = self.filtered_amplitudes[start_index:end_index]
+
+        except ValueError as e:
+            QMessageBox.warning(self, "Ошибка", f"Некорректные значения для удаления артефактов: {e}")
+
+    def toggle_lowpass_filter(self, button):
+        """Снятие выбора ФНЧ."""
+        if not button.isChecked():
+            # Если кнопка отключена, снимаем выбор
+            for other_button in self.lowpass_radio_buttons:
+                if other_button is not button and other_button.isChecked():
+                    other_button.setChecked(False)
+

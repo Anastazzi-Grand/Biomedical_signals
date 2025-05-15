@@ -158,18 +158,14 @@ class SignalProcessingWidget(QWidget):
             rr_mean = np.mean(self.rr_times)
             amplitude_mean = np.mean(self.amplitudes)
 
-            rr_centered = self.rr_times - rr_mean
-            amplitude_centered = self.amplitudes - amplitude_mean
-
             # Корреляционные значения
             corr_raw = np.corrcoef(self.rr_times, self.amplitudes)[0, 1]
-            corr_centered = np.corrcoef(rr_centered, amplitude_centered)[0, 1]
 
             # Создаем фигуру для графиков
             self.figure = plt.figure(figsize=(12, 6))
 
             # График 1: Исходные данные
-            ax1 = self.figure.add_subplot(121)
+            ax1 = self.figure.add_subplot(111)
             ax1.plot(self.rr_times, label="RR_time (ЭКС)", color="red")
             ax1.plot(self.amplitudes, label="Amplitude (ПГ)", color="blue")
             ax1.set_title("Исходные данные")
@@ -178,16 +174,6 @@ class SignalProcessingWidget(QWidget):
             ax1.legend()
             ax1.grid(True)
 
-            # График 2: Обработанные данные
-            ax2 = self.figure.add_subplot(122)
-            ax2.plot(rr_centered, label="RR_time (обработанный)", color="red")
-            ax2.plot(amplitude_centered, label="Amplitude (обработанный)", color="blue")
-            ax2.set_title("Обработанные данные")
-            ax2.set_xlabel("Индекс")
-            ax2.set_ylabel("Значение")
-            ax2.legend()
-            ax2.grid(True)
-
             # Отображение графиков
             self.canvas = FigureCanvas(self.figure)
             self.content_layout.addWidget(self.canvas)
@@ -195,7 +181,6 @@ class SignalProcessingWidget(QWidget):
             # Корреляционные значения
             self.correlation_label = QLabel(
                 f"Корреляция исходных данных: {corr_raw:.4f}\n"
-                f"Корреляция обработанных данных: {corr_centered:.4f}"
             )
             self.content_layout.addWidget(self.correlation_label)
         else:
