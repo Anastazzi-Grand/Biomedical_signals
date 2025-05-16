@@ -132,10 +132,6 @@ class SignalProcessingWidget(QWidget):
             )
             return
 
-        print("Состояние фильтров:")
-        for i, button in enumerate(self.filter_widget.lowpass_radio_buttons):
-            print(f"ФНЧ {button.text()} выбран: {button.isChecked()}")
-
         if not hasattr(self, "epoch_widget"):
             print("Создаем новый EpochSelectionWidget")
             self.epoch_widget = EpochSelectionWidget(

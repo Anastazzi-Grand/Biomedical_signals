@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 from scipy.signal import butter, filtfilt
+from scipy.stats import f
+
 
 class FilterSelectionWidget(QWidget):
     def __init__(self, db_session, ecs_data, pg_data):
@@ -20,8 +22,8 @@ class FilterSelectionWidget(QWidget):
         self.filtered_amplitudes = np.array(self.amplitudes)
 
         # Определение диапазонов фильтров как атрибутов класса
-        self.lowpass_cutoffs = [1.0, 2.0, 5.0, 10.0]  # Возможные значения частоты среза для ФНЧ
-        self.window_sizes = [5, 10, 20]  # Размеры окна для скользящего окна
+        self.lowpass_cutoffs = [0.5, 1.0, 2.0, 5.0]  # Возможные значения частоты среза для ФНЧ
+        self.window_sizes = [10, 20, 30]  # Размеры окна для скользящего окна
 
         self.init_ui()
 
@@ -216,10 +218,22 @@ class FilterSelectionWidget(QWidget):
         corr_raw = np.corrcoef(self.rr_times, self.amplitudes)[0, 1]
         corr_centered = np.corrcoef(rr_times, amplitudes)[0, 1]
 
+        # Вычисляем корреляционное отношение
+        correlation_ratio = self.calculate_correlation_ratio(rr_times, amplitudes)
+
+        # Проверка линейности связи
+        linearity_check = self.check_linearity(rr_times, amplitudes)
+
+        # Критерий Фишера
+        fisher_test_result = self.fisher_test(rr_times, amplitudes)
+
         # Обновляем метку с корреляцией
         self.correlation_label.setText(
             f"Корреляция исходных данных: {corr_raw:.4f}\n"
-            f"Корреляция обработанных данных: {corr_centered:.4f}"
+            f"Корреляция обработанных данных: {corr_centered:.4f}\n"
+            f"Корреляционное отношение: {correlation_ratio:.4f} (чем ближе к 1, тем лучше)\n"
+            f"Проверка линейности связи: {linearity_check} (должна быть линейная)\n"
+            f"Критерий Фишера: {fisher_test_result:.4f} (значимость > 0.05)"
         )
 
     @staticmethod
@@ -227,7 +241,7 @@ class FilterSelectionWidget(QWidget):
         """Применение скользящего окна."""
         if window_size < 2:
             return data
-        cumsum = np.cumsum(np.insert(data, 0, 0))
+        cumsum = np.cumsum(np.insert(data, 0, 0)) #Кумулятивная сумма
         filtered_data = (cumsum[window_size:] - cumsum[:-window_size]) / window_size
         padding = [data[:window_size // 2].mean()] * (window_size // 2)
         filtered_data = np.concatenate((padding, filtered_data, padding))
@@ -347,3 +361,57 @@ class FilterSelectionWidget(QWidget):
             checkbox.setChecked(False)
         # Возвращаем эксклюзивный режим
         self.lowpass_group.setExclusive(True)
+
+    def calculate_DRmgr(self, rr_times):
+        """Вычисление межгрупповой дисперсии."""
+        J = len(rr_times)
+        Rcpv = np.mean(rr_times)
+        NKL, bin_edges = np.histogram(rr_times, bins=16)
+        cpR = np.histogram(rr_times, bins=16, weights=rr_times)[0] / NKL
+        DRmgr = np.sum(NKL * (cpR - Rcpv) ** 2) / J
+        return DRmgr
+
+    def calculate_DR(self, rr_times):
+        """Вычисление общей дисперсии."""
+        DR = np.var(rr_times)
+        return DR
+
+    def calculate_correlation_ratio(self, rr_times, amplitudes):
+        """Вычисление корреляционного отношения."""
+        J = len(rr_times)
+        Rcpv = np.mean(rr_times)  # Общее среднее RR-интервалов
+
+        # Разделение данных на группы (классы)
+        NKL, bin_edges = np.histogram(amplitudes, bins=16)
+        cpR = np.histogram(amplitudes, bins=16, weights=rr_times)[0] / NKL
+
+        # Вычисление межгрупповой дисперсии
+        DRmgr = np.sum(NKL * (cpR - Rcpv) ** 2) / J
+
+        # Вычисление общей дисперсии
+        DR = np.var(rr_times)
+
+        # Корреляционное отношение
+        correlation_ratio = np.sqrt(DRmgr / DR)
+        return correlation_ratio
+
+    def check_linearity(self, rr_times, amplitudes):
+        """Проверка линейности связи по критерию Блекмана."""
+        J = len(rr_times)
+        r = np.corrcoef(rr_times, amplitudes)[0, 1]
+        Vrasch = J * (r ** 2)
+
+        # Критическое значение для α = 0.05
+        critical_value = f.ppf(0.95, 1, J - 2)  # Критическое значение F-распределения
+
+        if Vrasch >= critical_value:
+            return f"{Vrasch:.4f} - Линейная связь"
+        else:
+            return f"{Vrasch:.4f} - Нелинейная связь"
+
+    def fisher_test(self, rr_times, amplitudes):
+        """Критерий Фишера для проверки значимости корреляции."""
+        J = len(rr_times)
+        r = np.corrcoef(rr_times, amplitudes)[0, 1]
+        F = (J - 2) * (r ** 2) / (1 - r ** 2)
+        return F
