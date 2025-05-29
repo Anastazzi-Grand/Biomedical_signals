@@ -1,6 +1,8 @@
 from PyQt6.QtWidgets import QMainWindow, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
 from PyQt6.QtCore import Qt
 from database.session import authenticate_user
+from services.theme_switcher import ThemeSwitcher
+
 
 class LoginWindow(QMainWindow):
     def __init__(self):
@@ -14,6 +16,9 @@ class LoginWindow(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.layout = QVBoxLayout()
         self.central_widget.setLayout(self.layout)
+
+        self.theme_switcher = ThemeSwitcher(parent=self.central_widget)
+        self.layout.addWidget(self.theme_switcher)
 
         # Заголовок
         self.title_label = QLabel("Система обработки и отображения биомедицинских сигналов")

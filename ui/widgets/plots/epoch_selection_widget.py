@@ -1,133 +1,173 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QCheckBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QLineEdit, QRadioButton, QMessageBox
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
-from matplotlib.widgets import SpanSelector
-
+import numpy as np
 
 class EpochSelectionWidget(QWidget):
     def __init__(self, db_session, rr_times, amplitudes):
         super().__init__()
-        print("Инициализация EpochSelectionWidget")
         self.db_session = db_session
-        self.rr_times = rr_times  # RR-интервалы
+        self.rr_times = rr_times  # RR-интервалы (ЭКС)
         self.amplitudes = amplitudes  # Амплитуды дыхания
         self.selected_epoch_start = None  # Начало выбранной эпохи
         self.selected_epoch_end = None  # Конец выбранной эпохи
+        self.is_manual_selection = True  # Флаг для ручного/автоматического выбора
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout()
 
         # Заголовок
-        title_label = QLabel("Выберите 'Эпоху' (участок сигнала):")
+        title_label = QLabel("Выберите 'Эпоху' (ровный участок сигнала):")
         layout.addWidget(title_label)
 
-        # Чекбокс для автоматического выбора эпохи
-        self.auto_select_checkbox = QCheckBox("Автоматически выбрать эпоху (30 кардиоциклов)")
-        self.auto_select_checkbox.setChecked(True)  # По умолчанию включено
-        layout.addWidget(self.auto_select_checkbox)
+        # Выбор режима: автоматический или ручной
+        self.manual_radio = QRadioButton("Ручной выбор")
+        self.auto_radio = QRadioButton("Автоматический выбор")
+        self.manual_radio.setChecked(True)  # По умолчанию ручной выбор
 
-        # Кнопки управления
-        button_layout = QHBoxLayout()
-        self.select_button = QPushButton("Выбрать участок вручную")
-        self.select_button.clicked.connect(self.enable_manual_selection)
-        button_layout.addWidget(self.select_button)
+        # Группировка радиокнопок
+        radio_group = QHBoxLayout()
+        radio_group.addWidget(self.manual_radio)
+        radio_group.addWidget(self.auto_radio)
+        layout.addLayout(radio_group)
 
-        self.reset_button = QPushButton("Сбросить выбор")
-        self.reset_button.clicked.connect(self.reset_selection)
-        button_layout.addWidget(self.reset_button)
+        # Поле для ввода количества кардиоциклов
+        cycle_count_layout = QHBoxLayout()
+        self.cycle_count_input = QLineEdit()
+        self.cycle_count_input.setText("30")  # Значение по умолчанию
+        cycle_count_layout.addWidget(QLabel("Количество кардиоциклов (мин. 30):"))
+        cycle_count_layout.addWidget(self.cycle_count_input)
+        layout.addLayout(cycle_count_layout)
 
-        layout.addLayout(button_layout)
+        # Поля для ручного ввода
+        self.start_index_input = QLineEdit()
+        self.end_index_input = QLineEdit()
+        self.start_index_input.setEnabled(True)
+        self.end_index_input.setEnabled(True)
 
-        # График
-        self.figure = plt.figure(figsize=(12, 6))
-        self.canvas = FigureCanvas(self.figure)
-        layout.addWidget(self.canvas)
+        input_layout = QHBoxLayout()
+        input_layout.addWidget(QLabel("Начальный индекс:"))
+        input_layout.addWidget(self.start_index_input)
+        input_layout.addWidget(QLabel("Конечный индекс:"))
+        input_layout.addWidget(self.end_index_input)
+        layout.addLayout(input_layout)
 
-        # Метка для информации о выбранном участке
+        # Кнопка "Применить"
+        self.apply_button = QPushButton("Применить")
+        self.apply_button.clicked.connect(self.apply_selection)
+        layout.addWidget(self.apply_button)
+
+        # Информационная метка
         self.epoch_info_label = QLabel("Выбранный участок: Не выбрано")
         layout.addWidget(self.epoch_info_label)
 
+        # График
+        self.figure, self.ax = plt.subplots(figsize=(10, 5))
+        self.canvas = FigureCanvas(self.figure)
+        layout.addWidget(self.canvas)
+
+        # Установка макета
         self.setLayout(layout)
 
-        # Отображение исходных данных
+        # Обработчики событий для переключения режима
+        self.manual_radio.toggled.connect(self.toggle_selection_mode)
+        self.auto_radio.toggled.connect(self.toggle_selection_mode)
+
+        # Инициализация графика
         self.plot_data()
 
-    def update_data(self, rr_times, amplitudes):
-        """Обновляет данные и перерисовывает график."""
-        self.rr_times = rr_times
-        self.amplitudes = amplitudes
-        self.plot_data()
+    def toggle_selection_mode(self):
+        """Переключение между ручным и автоматическим выбором."""
+        if self.manual_radio.isChecked():
+            self.is_manual_selection = True
+            self.start_index_input.setEnabled(True)
+            self.end_index_input.setEnabled(True)
+            self.cycle_count_input.setEnabled(False)
+        elif self.auto_radio.isChecked():
+            self.is_manual_selection = False
+            self.start_index_input.setEnabled(False)
+            self.end_index_input.setEnabled(False)
+            self.cycle_count_input.setEnabled(True)
+
+    def perform_auto_selection(self):
+        """Автоматический выбор наиболее ровного участка сигнала."""
+        try:
+            cycle_count = int(self.cycle_count_input.text())
+            if cycle_count < 30 or cycle_count > len(self.rr_times):
+                raise ValueError("Количество кардиоциклов должно быть не менее 30 и не более длины сигнала.")
+
+            min_std = float('inf')  # Минимальное СКО
+            best_start_index = 0  # Индекс начала лучшего участка
+            signal_length = len(self.rr_times)
+
+            for i in range(signal_length - cycle_count + 1):
+                segment = self.rr_times[i:i + cycle_count]
+                std = np.std(segment)
+                mean = np.mean(segment)
+                outliers = [x for x in segment if abs(x - mean) > 3 * std]
+
+                if std < min_std and len(outliers) == 0:
+                    min_std = std
+                    best_start_index = i
+
+            self.selected_epoch_start = best_start_index
+            self.selected_epoch_end = best_start_index + cycle_count - 1
+            self.epoch_info_label.setText(f"Выбранный участок: {self.selected_epoch_start} - {self.selected_epoch_end}")
+            self.highlight_selected_epoch()
+        except ValueError as e:
+            QMessageBox.warning(self, "Ошибка", str(e))
+
+    def apply_selection(self):
+        """Применение выбора эпохи."""
+        if self.is_manual_selection:
+            try:
+                start = int(self.start_index_input.text())
+                end = int(self.end_index_input.text())
+
+                # Проверка корректности введенных значений
+                if start < 0 or end >= len(self.rr_times):
+                    raise ValueError("Индексы выходят за границы сигнала.")
+                if end - start + 1 < 30:
+                    raise ValueError("Выбранный участок должен содержать не менее 30 кардиоциклов.")
+
+                self.selected_epoch_start = start
+                self.selected_epoch_end = end
+                self.epoch_info_label.setText(f"Выбранный участок: {start} - {end}")
+                self.highlight_selected_epoch()
+            except ValueError as e:
+                QMessageBox.warning(self, "Ошибка", str(e))
+        else:
+            self.perform_auto_selection()
 
     def plot_data(self):
-        """Отображение данных на графике."""
-        self.figure.clear()
-        ax = self.figure.add_subplot(111)
-        ax.plot(self.rr_times, label="RR_time (ЭКС)", color="blue")
-        ax.plot(self.amplitudes, label="Amplitude (ПГ)", color="red")
-        ax.set_title("Выбор 'Эпохи'")
-        ax.set_xlabel("Индекс")
-        ax.set_ylabel("Значение")
-        ax.legend()
-        ax.grid(True)
+        """Отображение исходных данных на графике."""
+        self.ax.clear()
+        self.ax.plot(self.rr_times, label="RR-интервалы (ЭКС)", color="red")  # ЭКС — красный
+        self.ax.plot(self.amplitudes, label="Амплитуды дыхания", color="blue")  # Сигнал дыхания — синий
+        self.ax.set_title("Выбор эпохи")
+        self.ax.legend()
+        self.ax.grid(True)  # Добавляем сетку
+        self.canvas.draw()
 
-        if self.auto_select_checkbox.isChecked():
-            self.auto_select_epoch(ax)
-
+    def highlight_selected_epoch(self):
+        """Выделение выбранной эпохи на графике."""
+        self.plot_data()
         if self.selected_epoch_start is not None and self.selected_epoch_end is not None:
-            ax.axvspan(self.selected_epoch_start, self.selected_epoch_end, color="yellow", alpha=0.3)
+            self.ax.axvspan(self.selected_epoch_start, self.selected_epoch_end, color='yellow', alpha=0.5)
+            self.canvas.draw()
 
-        self.canvas.draw()
+    def update_data(self, rr_times, amplitudes):
+        """
+        Обновление данных и восстановление состояния выбора эпохи.
+        """
+        print("Обновление данных в EpochSelectionWidget")
+        self.rr_times = rr_times
+        self.amplitudes = amplitudes
 
-    def auto_select_epoch(self, ax):
-        """Автоматический выбор эпохи (30 кардиоциклов)."""
-        if len(self.rr_times) < 30:
-            print("Недостаточно данных для автоматического выбора эпохи.")
-            return
+        # Восстанавливаем выбранный участок, если он был
+        if self.selected_epoch_start is not None and self.selected_epoch_end is not None:
+            self.epoch_info_label.setText(f"Выбранный участок: {self.selected_epoch_start} - {self.selected_epoch_end}")
 
-        # Вычисляем индексы начала и конца эпохи
-        self.selected_epoch_start = 0
-        self.selected_epoch_end = 30
-
-        # Обновляем метку с информацией о выбранном участке
-        self.epoch_info_label.setText(
-            f"Выбранный участок: {self.selected_epoch_start} - {self.selected_epoch_end}"
-        )
-
-        # Выделяем участок на графике
-        ax.axvspan(self.selected_epoch_start, self.selected_epoch_end, color="yellow", alpha=0.3)
-
-    def enable_manual_selection(self):
-        """Включение ручного выбора участка."""
-        print("Включение ручного выбора участка")
-
-        # Очищаем график для нового выбора
-        self.figure.clear()
-        ax = self.figure.add_subplot(111)
-        ax.plot(self.rr_times, label="RR_time (ЭКС)", color="blue")
-        ax.plot(self.amplitudes, label="Amplitude (ПГ)", color="red")
-        ax.set_title("Выбор 'Эпохи'")
-        ax.set_xlabel("Индекс")
-        ax.set_ylabel("Значение")
-        ax.legend()
-        ax.grid(True)
-
-        # Добавляем SpanSelector для ручного выбора
-        def onselect(xmin, xmax):
-            self.selected_epoch_start = int(xmin)
-            self.selected_epoch_end = int(xmax)
-            print(f"Выбран участок: {self.selected_epoch_start} - {self.selected_epoch_end}")
-            self.epoch_info_label.setText(
-                f"Выбранный участок: {self.selected_epoch_start} - {self.selected_epoch_end}"
-            )
-            self.plot_data()
-
-        span = SpanSelector(ax, onselect, "horizontal", useblit=True, rectprops=dict(alpha=0.5, facecolor="yellow"))
-        self.canvas.draw()
-
-    def reset_selection(self):
-        """Сброс выбора эпохи."""
-        self.selected_epoch_start = None
-        self.selected_epoch_end = None
-        self.epoch_info_label.setText("Выбранный участок: Не выбрано")
+        # Перерисовываем график
         self.plot_data()

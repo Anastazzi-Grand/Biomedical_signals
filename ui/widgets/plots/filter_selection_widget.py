@@ -4,7 +4,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, filtfilt, cheby1
 from scipy.stats import f
 
 
@@ -22,8 +22,12 @@ class FilterSelectionWidget(QWidget):
         self.filtered_amplitudes = np.array(self.amplitudes)
 
         # Определение диапазонов фильтров как атрибутов класса
-        self.lowpass_cutoffs = [0.5, 1.0, 2.0, 5.0]  # Возможные значения частоты среза для ФНЧ
-        self.window_sizes = [10, 20, 30]  # Размеры окна для скользящего окна
+        self.lowpass_cutoffs = [50, 55, 60, 0.5]  # Возможные значения частоты среза для ФНЧ Баттерворта
+        self.chebyshev_params = [
+            {"cutoff": 0.4, "order": 2, "ripple": 0.5},  # Параметры для ФНЧ Чебышева
+            {"cutoff": 50, "order": 2, "ripple": 0.3},
+            {"cutoff": 0.2, "order": 2, "ripple": 0.1}
+        ]
 
         self.init_ui()
 
@@ -49,19 +53,20 @@ class FilterSelectionWidget(QWidget):
         # Добавляем группу ФНЧ
         layout.addLayout(lowpass_butter_group)
 
-        # Группа для скользящего окна
-        moving_average_checkboxes = []
-        moving_average_group = QHBoxLayout()
-        for size in self.window_sizes:
-            checkbox = QCheckBox(f"Скользящее окно (окно {size})")
-            moving_average_group.addWidget(checkbox)
-            moving_average_checkboxes.append(checkbox)
+        # Группа для ФНЧ Чебышева
+        chebyshev_checkboxes = []
+        chebyshev_group = QHBoxLayout()
+        for params in self.chebyshev_params:
+            label = f"ФНЧ Чебышева (частота {params['cutoff']} Гц, порядок {params['order']}, пульсация {params['ripple']})"
+            checkbox = QCheckBox(label)
+            chebyshev_group.addWidget(checkbox)
+            chebyshev_checkboxes.append(checkbox)
             self.lowpass_group.addButton(checkbox)  # Добавляем в ту же группу
 
-        layout.addLayout(moving_average_group)
+        layout.addLayout(chebyshev_group)
 
         # Объединяем группы ФНЧ в одну
-        self.lowpass_checkboxes = lowpass_checkboxes + moving_average_checkboxes
+        self.lowpass_checkboxes = lowpass_checkboxes + chebyshev_checkboxes
 
         # Кнопка "Убрать выбор ФНЧ"
         reset_button = QPushButton("Убрать выбор ФНЧ")
@@ -122,10 +127,8 @@ class FilterSelectionWidget(QWidget):
 
         # Первый график
         ax1 = self.figure.add_subplot(121)
-        ax1.plot(self.filtered_rr_times, label="RR_time (обработанный)", color="red",
-                 linewidth=1)
-        ax1.plot(self.filtered_amplitudes, label="Amplitude (обработанный)", color="blue",
-                 linewidth=1)
+        ax1.plot(self.filtered_rr_times, label="RR_time (обработанный)", color="red", linewidth=1)
+        ax1.plot(self.filtered_amplitudes, label="Amplitude (обработанный)", color="blue", linewidth=1)
         ax1.set_title("Обработанные сигналы")
         ax1.legend()
         ax1.grid(True)
@@ -136,16 +139,12 @@ class FilterSelectionWidget(QWidget):
         freqs_amp, spectrum_amp = self.compute_spectrum(self.filtered_amplitudes)
 
         ax2.plot(freqs_rr, spectrum_rr, label="RR_time (спектр)", color="red", linewidth=1)
-        ax2.plot(freqs_amp, spectrum_amp, label="Amplitude (спектр)", color="blue",
-                 linewidth=1)
+        ax2.plot(freqs_amp, spectrum_amp, label="Amplitude (спектр)", color="blue", linewidth=1)
         ax2.set_title("Спектральный анализ")
         ax2.set_xlabel("Частота (Гц)")
         ax2.set_ylabel("Амплитуда")
         ax2.legend()
         ax2.grid(True)
-
-        ymin, ymax = ax2.get_xlim()  # Получаем текущие пределы оси Y
-        ax2.set_xlim(ymin, ymax / 2)  # Устанавливаем новые пределы, уменьшенные в 2 раза
 
         self.canvas.draw()
 
@@ -182,20 +181,31 @@ class FilterSelectionWidget(QWidget):
                 if i < len(self.lowpass_cutoffs):  # ФНЧ (Баттерворта)
                     selected_lowpass_type = "butter"
                     selected_lowpass_param = self.lowpass_cutoffs[i]
-                else:  # Скользящее окно
-                    selected_lowpass_type = "moving_average"
-                    selected_window_size = self.window_sizes[i - len(self.lowpass_cutoffs)]
-                    selected_lowpass_param = selected_window_size
+                else:  # ФНЧ Чебышева
+                    selected_chebyshev_index = i - len(self.lowpass_cutoffs)
+                    if selected_chebyshev_index < 0 or selected_chebyshev_index >= len(self.chebyshev_params):
+                        QMessageBox.warning(self, "Ошибка", "Некорректный индекс для параметров ФНЧ Чебышева")
+                        return
+                    selected_lowpass_type = "chebyshev"
+                    selected_lowpass_param = self.chebyshev_params[selected_chebyshev_index]
                 break
 
         # Применяем выбранный ФНЧ, только если он выбран
         if selected_lowpass_type == "butter":
             rr_times = self.apply_lowpass_filter(rr_times, cutoff=selected_lowpass_param, fs=self.fs)
             amplitudes = self.apply_lowpass_filter(amplitudes, cutoff=selected_lowpass_param, fs=self.fs)
-        elif selected_lowpass_type == "moving_average":
-            rr_times = self.moving_average_filter(rr_times, window_size=selected_lowpass_param)
-            amplitudes = self.moving_average_filter(amplitudes, window_size=selected_lowpass_param)
-
+        elif selected_lowpass_type == "chebyshev":
+            params = selected_lowpass_param
+            try:
+                rr_times = self.chebyshev_lowpass_filter(
+                    rr_times, cutoff=params["cutoff"], fs=self.fs, order=params["order"], ripple=params["ripple"]
+                )
+                amplitudes = self.chebyshev_lowpass_filter(
+                    amplitudes, cutoff=params["cutoff"], fs=self.fs, order=params["order"], ripple=params["ripple"]
+                )
+            except Exception as e:
+                QMessageBox.warning(self, "Ошибка", f"Не удалось применить ФНЧ Чебышева: {e}")
+                return
         # Применение других фильтров
         if self.highpass_checkbox.isChecked():
             rr_times = self.apply_highpass_filter(rr_times, cutoff=0.05, fs=self.fs)
@@ -204,6 +214,10 @@ class FilterSelectionWidget(QWidget):
             rr_times = self.apply_notch_filter(rr_times, notch_freq=50, fs=self.fs)
             amplitudes = self.apply_notch_filter(amplitudes, notch_freq=50, fs=self.fs)
         if self.center_checkbox.isChecked():
+            # Нормализация сигнала
+            # вычисляет стандартное отклонение элементов массива
+            # Нормализация данных перед вычислением спектра
+            # amplitudes = (amplitudes - np.mean(amplitudes)) / np.std(amplitudes)
             rr_times = (rr_times - np.mean(rr_times)) / np.std(rr_times)
             amplitudes = amplitudes - np.mean(amplitudes)
 
@@ -236,17 +250,6 @@ class FilterSelectionWidget(QWidget):
             f"Критерий Фишера: {fisher_test_result:.4f} (значимость > 0.05)"
         )
 
-    @staticmethod
-    def moving_average_filter(data, window_size):
-        """Применение скользящего окна."""
-        if window_size < 2:
-            return data
-        cumsum = np.cumsum(np.insert(data, 0, 0)) #Кумулятивная сумма
-        filtered_data = (cumsum[window_size:] - cumsum[:-window_size]) / window_size
-        padding = [data[:window_size // 2].mean()] * (window_size // 2)
-        filtered_data = np.concatenate((padding, filtered_data, padding))
-        return filtered_data
-
     def get_filtered_data(self):
         if self.filtered_rr_times is None or self.filtered_amplitudes is None:
             print("Фильтры не были применены")
@@ -258,11 +261,11 @@ class FilterSelectionWidget(QWidget):
     def get_filter_state(self):
         """Возвращает текущее состояние фильтров."""
         state = {
-            'lowpass': None,
+            'lowpass': None,  # Для ФНЧ Баттерворта
+            'chebyshev_params': None,  # Для ФНЧ Чебышева
             'highpass': self.highpass_checkbox.isChecked(),
             'notch': self.notch_checkbox.isChecked(),
-            'center': self.center_checkbox.isChecked(),
-            'window_size': None
+            'center': self.center_checkbox.isChecked()
         }
 
         # Проверяем выбор ФНЧ среди чекбоксов
@@ -270,8 +273,9 @@ class FilterSelectionWidget(QWidget):
             if checkbox.isChecked():
                 if i < len(self.lowpass_cutoffs):  # ФНЧ (Баттерворта)
                     state['lowpass'] = self.lowpass_cutoffs[i]
-                else:  # Скользящее окно
-                    state['window_size'] = self.window_sizes[i - len(self.lowpass_cutoffs)]
+                else:  # ФНЧ Чебышева
+                    chebyshev_index = i - len(self.lowpass_cutoffs)
+                    state['chebyshev_params'] = self.chebyshev_params[chebyshev_index]
                 break
 
         return state
@@ -288,8 +292,9 @@ class FilterSelectionWidget(QWidget):
             if i < len(self.lowpass_cutoffs):  # ФНЧ (Баттерворта)
                 if state['lowpass'] == self.lowpass_cutoffs[i]:
                     checkbox.setChecked(True)
-            else:  # Скользящее окно
-                if state['window_size'] == self.window_sizes[i - len(self.lowpass_cutoffs)]:
+            else:  # ФНЧ Чебышева
+                chebyshev_index = i - len(self.lowpass_cutoffs)
+                if state['chebyshev_params'] == self.chebyshev_params[chebyshev_index]:
                     checkbox.setChecked(True)
 
         # Возвращаем эксклюзивный режим
@@ -304,21 +309,51 @@ class FilterSelectionWidget(QWidget):
     def compute_spectrum(data):
         """Вычисление спектра сигнала с помощью FFT."""
         n = len(data)  # Длина сигнала
-        spectrum = np.abs(np.fft.fft(data))  # Берем модуль FFT
-        freqs = np.fft.fftfreq(n, d=1 / 200)  # Частоты
-        spectrum = spectrum[:n // 2]  # Берем только положительные частоты
+        spectrum = np.abs(np.fft.fft(data)) / n  # Нормализованный спектр
+        freqs = np.fft.fftfreq(n, d=1 / 1)  # Частоты
+
+        # Берем только положительные частоты
+        spectrum = spectrum[:n // 2]
         freqs = freqs[:n // 2]
+
+        # Фильтрация малых значений
+        spectrum = np.where(spectrum < 0.001, 0, spectrum)
+
         return freqs, spectrum
 
     @staticmethod
-    def apply_lowpass_filter(data, cutoff, fs, order=5):
+    def apply_lowpass_filter(data, cutoff, fs, order=1):
+        """
+        Применение ФНЧ Баттерворта.
+        Формула: H(s) = 1 / (s^2 + s * (w_c / Q) + w_c^2),
+        где w_c = 2 * pi * cutoff — угловая частота среза.
+        Реализация через scipy.signal.butter.
+        """
         nyquist = 0.5 * fs
         normal_cutoff = cutoff / nyquist
         b, a = butter(order, normal_cutoff, btype='low', analog=False)
         return filtfilt(b, a, data)
 
     @staticmethod
-    def apply_highpass_filter(data, cutoff, fs, order=5):
+    def chebyshev_lowpass_filter(data, cutoff, fs, order, ripple):
+        """
+        Реализация ФНЧ Чебышева.
+        """
+        nyquist = 0.5 * fs
+        normal_cutoff = cutoff / nyquist
+
+        # Расчет коэффициентов фильтра Чебышева
+        b, a = cheby1(order, ripple, normal_cutoff, btype='low', analog=False)
+        return filtfilt(b, a, data)
+
+    @staticmethod
+    def apply_highpass_filter(data, cutoff, fs, order=4):
+        """
+        Применение ФВЧ Баттерворта.
+        Формула: H(s) = s^2 / (s^2 + s * (w_c / Q) + w_c^2),
+        где w_c = 2 * pi * cutoff — угловая частота среза.
+        Реализация через scipy.signal.butter.
+        """
         nyquist = 0.5 * fs
         normal_cutoff = cutoff / nyquist
         b, a = butter(order, normal_cutoff, btype='high', analog=False)
@@ -326,8 +361,14 @@ class FilterSelectionWidget(QWidget):
 
     @staticmethod
     def apply_notch_filter(data, notch_freq, fs, quality_factor=30):
+        """
+        Применение режекторного фильтра.
+        Формула: H(s) = (s^2 + w_0^2) / (s^2 + s * (w_0 / Q) + w_0^2),
+        где w_0 = 2 * pi * notch_freq — угловая частота режекции.
+        Реализация через scipy.signal.iirnotch.
+        """
         nyquist = 0.5 * fs
-        normal_notch_freq = notch_freq / nyquist
+        normal_notch_freq = notch_freq / nyquist # Нормированная частота режекции
         b, a = signal.iirnotch(normal_notch_freq, quality_factor)
         return filtfilt(b, a, data)
 

@@ -1,3 +1,4 @@
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QPushButton, QInputDialog, QMessageBox
 
 from services.ecs_service import get_ecs_data_by_session_id
@@ -18,7 +19,9 @@ class ResearcherWidget(QWidget):
         self.signal_processing_widget = None
 
     def init_ui(self):
+        # Основной макет
         layout = QVBoxLayout()
+
         # Кнопки
         self.raw_data_button = QPushButton("Посмотреть сырые данные")
         self.raw_data_button.clicked.connect(self.view_raw_data)
@@ -26,10 +29,13 @@ class ResearcherWidget(QWidget):
         self.process_signals_button.clicked.connect(self.process_signals)
         self.processed_data_button = QPushButton("Посмотреть обработанные данные")
         self.processed_data_button.clicked.connect(self.view_processed_data)
+
         # Добавляем кнопки в макет
         layout.addWidget(self.raw_data_button)
         layout.addWidget(self.process_signals_button)
         layout.addWidget(self.processed_data_button)
+
+        # Устанавливаем макет
         self.setLayout(layout)
 
     def view_raw_data(self):

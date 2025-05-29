@@ -3,6 +3,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 import numpy as np
 
+from services.theme_switcher import ThemeSwitcher
 from ui.widgets.plots.epoch_selection_widget import EpochSelectionWidget
 from ui.widgets.plots.filter_selection_widget import FilterSelectionWidget
 

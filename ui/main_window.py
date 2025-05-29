@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget, QPushButton, QMessageBox, QTabWidget
 
 from database.session import authenticate_user, get_user_accessible_tables
+from services.theme_switcher import ThemeSwitcher
 from ui.widgets.ecs_widget import ECSDataWidget
 from ui.widgets.patient_widget import PatientWidget
 from ui.widgets.pg_widget import PGDataWidget
@@ -18,6 +19,9 @@ class MainWindow(QMainWindow):
 
         # Инициализация интерфейса
         self.setup_main_interface(username, password)
+
+        self.theme_switcher = ThemeSwitcher(parent=self.central_widget)
+        self.layout.addWidget(self.theme_switcher)
 
         # Флаг для отображения главного меню
         self.is_main_menu_visible = False
