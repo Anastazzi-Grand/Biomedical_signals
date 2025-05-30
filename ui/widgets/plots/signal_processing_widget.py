@@ -12,6 +12,8 @@ from ui.widgets.plots.filter_selection_widget import FilterSelectionWidget
 class SignalProcessingWidget(QWidget):
     def __init__(self, db_session, session_id):
         super().__init__()
+        self.WIDGETS_COUNT = 3
+
         self.db_session = db_session
         self.session_id = session_id
         self.current_step = 0  # Текущий этап обработки
@@ -91,17 +93,21 @@ class SignalProcessingWidget(QWidget):
             # Показываем нужный виджет
             if self.current_step == 0:
                 print("Показываем исходные данные")
+                self.step_label.setText(f"Этап {self.current_step + 1}: Исходные данные")
                 self.show_initial_data()
             elif self.current_step == 1:
                 print("Показываем выбор фильтров")
+                self.step_label.setText(f"Этап {self.current_step + 1}: Предварительная обработка")
                 self.show_filter_selection()
                 if hasattr(self, "filter_widget") and self.filter_state:
                     self.filter_widget.set_filter_state(self.filter_state)
             elif self.current_step == 2:
                 print("Показываем выбор эпохи")
+                self.step_label.setText(f"Этап {self.current_step + 1}: Выбор \"Эпохи\"")
                 self.show_epoch_selection()
             elif self.current_step == 3:
                 print("Показываем создание временных рядов")
+                self.step_label.setText(f"Этап {self.current_step + 1}: Ряды RRi и dUi")
                 self.show_creating_time_series()
             else:
                 print("Показываем заполнитель")
@@ -227,7 +233,7 @@ class SignalProcessingWidget(QWidget):
         self.current_step += 1
         self.prev_button.setEnabled(True)
         self.step_label.setText(f"Этап {self.current_step + 1}: Следующий этап")
-        if self.current_step == 3:  # Если это последний этап (НАДО ИСПРАВИТЬ)
+        if self.current_step == self.WIDGETS_COUNT:
             self.next_button.setEnabled(False)
         self.show_step()
 
@@ -240,4 +246,16 @@ class SignalProcessingWidget(QWidget):
         self.next_button.setEnabled(True)
         self.prev_button.setEnabled(self.current_step > 0)
         self.step_label.setText(f"Этап {self.current_step + 1}: Текущий этап")
+        if self.current_step == 0:
+            print("Показываем исходные данные")
+            self.step_label.setText(f"Этап {self.current_step + 1}: Исходные данные")
+        elif self.current_step == 1:
+            print("Показываем выбор фильтров")
+            self.step_label.setText(f"Этап {self.current_step + 1}: Предварительная обработка")
+        elif self.current_step == 2:
+            print("Показываем выбор эпохи")
+            self.step_label.setText(f"Этап {self.current_step + 1}: Выбор \"Эпохи\"")
+        elif self.current_step == 3:
+            print("Показываем создание временных рядов")
+            self.step_label.setText(f"Этап {self.current_step + 1}: Ряды RRi и dUi")
         self.show_step()

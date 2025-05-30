@@ -112,30 +112,49 @@ class ImportDataWidget(QDialog):
             return
 
         # Проверка существования файла
-        import os
         if not os.path.exists(file_path):
             QMessageBox.warning(self, "Ошибка", "Файл не найден.")
             return
 
-        # Отладочный вывод
-        print(f"file_path: {file_path}, session_id: {session_id}")
-
         try:
-            # Проверка состояния сессии
-            if not self.db_session.is_active:
-                raise Exception("Сессия базы данных неактивна.")
+            # Проверяем, есть ли уже данные для указанного сеанса
+            from services.ecs_service import get_ecs_data_by_session_id, delete_ecs_data_by_session_id
+            from services.pg_service import get_pg_data_by_session_id, delete_pg_data_by_session_id
 
-            # Выполняем SQL-запрос напрямую
+            existing_ecs_data = get_ecs_data_by_session_id(self.db_session, session_id)
+            existing_pg_data = get_pg_data_by_session_id(self.db_session, session_id)
+
+            if existing_ecs_data or existing_pg_data:
+                # Если данные уже существуют, спрашиваем пользователя, хочет ли он их перезаписать
+                reply = QMessageBox.question(
+                    self,
+                    "Подтверждение",
+                    "Данные на указанный сеанс уже есть. Хотите перезаписать?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+
+                if reply == QMessageBox.StandardButton.No:
+                    # Если пользователь отказался, выходим из метода
+                    return
+
+                # Если пользователь согласился, удаляем старые данные
+                delete_ecs_data_by_session_id(self.db_session, session_id)
+                delete_pg_data_by_session_id(self.db_session, session_id)
+
+            # Добавляем новые данные
             sql_query = text("""
             SELECT import_data_from_file(:file_path, :session_id);
-            """)  # Оборачиваем запрос в text()
-            print(f"SQL Query: {sql_query}")  # Отладочный вывод запроса
+            """)
             self.db_session.execute(sql_query, {"file_path": file_path, "session_id": session_id})
             self.db_session.commit()
 
             QMessageBox.information(self, "Успех", "Данные успешно импортированы!")
+
+            # Закрываем диалоговое окно после успешного импорта
+            self.accept()
+
         except Exception as e:
             self.db_session.rollback()  # Откатываем транзакцию в случае ошибки
             print(f"Ошибка при импорте данных: {e}")
-            print(f"Тип ошибки: {type(e)}")
             QMessageBox.critical(self, "Ошибка", f"Не удалось импортировать данные: {e}")

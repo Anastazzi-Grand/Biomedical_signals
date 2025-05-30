@@ -116,3 +116,17 @@ def delete_ecs_data(db: Session, ecsdataid: int):
     db.delete(ecs_data)
     db.commit()
     return {"message": f"Запись ECS_data с ID {ecsdataid} успешно удалена"}
+
+
+def delete_ecs_data_by_session_id(db: Session, session_id: int):
+    """
+    Удаление всех данных ECS_data для указанного сеанса.
+    """
+    ecs_data = db.query(ECS_data).filter(ECS_data.sessionid == session_id).all()
+    if not ecs_data:
+        raise ValueError(f"Нет данных ECS_data для сеанса с ID {session_id}")
+
+    for data in ecs_data:
+        db.delete(data)
+    db.commit()
+    return {"message": f"Все данные ECS_data для сеанса с ID {session_id} успешно удалены"}

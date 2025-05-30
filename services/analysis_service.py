@@ -56,6 +56,13 @@ def get_analysis_result_by_sessionid(db: Session, sessionid: int):
     result = db.query(Analysis_result).filter(Analysis_result.sessionid == sessionid).first()
     return result
 
+def get_analysis_results_by_sessionid(db: Session, session_id: int):
+    """
+    Получение всех результатов анализа для указанного сеанса.
+    """
+    results = db.query(Analysis_result).filter(Analysis_result.sessionid == session_id).all()
+    return results  # Всегда возвращаем список
+
 
 # Поиск результатов анализа по дате и времени сеанса
 def get_analysis_results_by_session_datetime(db: Session, session_date: date, session_time: time):

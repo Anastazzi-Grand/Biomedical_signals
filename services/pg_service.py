@@ -120,3 +120,17 @@ def delete_pg_data(db: Session, pgdataid: int):
     db.delete(pg_data)
     db.commit()
     return {"message": f"Запись PG_data с ID {pgdataid} успешно удалена"}
+
+
+def delete_pg_data_by_session_id(db: Session, session_id: int):
+    """
+    Удаление всех данных PG_data для указанного сеанса.
+    """
+    pg_data = db.query(PG_data).filter(PG_data.sessionid == session_id).all()
+    if not pg_data:
+        raise ValueError(f"Нет данных PG_data для сеанса с ID {session_id}")
+
+    for data in pg_data:
+        db.delete(data)
+    db.commit()
+    return {"message": f"Все данные PG_data для сеанса с ID {session_id} успешно удалены"}
