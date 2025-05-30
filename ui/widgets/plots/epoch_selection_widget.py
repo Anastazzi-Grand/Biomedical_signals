@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 class EpochSelectionWidget(QWidget):
-    def __init__(self, db_session, rr_times, amplitudes):
+    def __init__(self, db_session, rr_times, amplitudes, session_id):
         super().__init__()
         self.db_session = db_session
         self.rr_times = rr_times  # RR-интервалы (ЭКС)
@@ -12,6 +12,7 @@ class EpochSelectionWidget(QWidget):
         self.selected_epoch_start = None  # Начало выбранной эпохи
         self.selected_epoch_end = None  # Конец выбранной эпохи
         self.is_manual_selection = True  # Флаг для ручного/автоматического выбора
+        self.session_id = session_id
         self.init_ui()
 
     def init_ui(self):

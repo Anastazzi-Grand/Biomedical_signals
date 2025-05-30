@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from services.theme_switcher import ThemeSwitcher
+from ui.widgets.plots.creating_time_series_widget import CreatingTimeSeriesWidget
 from ui.widgets.plots.epoch_selection_widget import EpochSelectionWidget
 from ui.widgets.plots.filter_selection_widget import FilterSelectionWidget
 
@@ -94,12 +95,14 @@ class SignalProcessingWidget(QWidget):
             elif self.current_step == 1:
                 print("Показываем выбор фильтров")
                 self.show_filter_selection()
-                # Восстанавливаем состояние фильтров
                 if hasattr(self, "filter_widget") and self.filter_state:
                     self.filter_widget.set_filter_state(self.filter_state)
             elif self.current_step == 2:
                 print("Показываем выбор эпохи")
                 self.show_epoch_selection()
+            elif self.current_step == 3:
+                print("Показываем создание временных рядов")
+                self.show_creating_time_series()
             else:
                 print("Показываем заполнитель")
                 self.show_placeholder()
@@ -113,7 +116,8 @@ class SignalProcessingWidget(QWidget):
             self.filter_widget = FilterSelectionWidget(
                 self.db_session,
                 self.rr_times,  # Передаем данные RR-интервалов
-                self.amplitudes  # Передаем данные амплитуд дыхания
+                self.amplitudes,  # Передаем данные амплитуд дыхания
+                self.session_id
             )
             self.content_layout.addWidget(self.filter_widget)
         else:
@@ -138,7 +142,8 @@ class SignalProcessingWidget(QWidget):
             self.epoch_widget = EpochSelectionWidget(
                 self.db_session,
                 filtered_rr_times,
-                filtered_amplitudes
+                filtered_amplitudes,
+                self.session_id
             )
             self.content_layout.addWidget(self.epoch_widget)
         else:
@@ -147,14 +152,33 @@ class SignalProcessingWidget(QWidget):
 
         self.epoch_widget.show()
 
+    def show_creating_time_series(self):
+        """Отображение создания временных рядов."""
+        if not hasattr(self, "epoch_widget") or self.epoch_widget.selected_epoch_start is None:
+            QMessageBox.warning(self, "Внимание", "Эпоха не выбрана. Выберите эпоху перед этим этапом.")
+            return
+
+        # Берем данные из выбранной эпохи
+        start = self.epoch_widget.selected_epoch_start
+        end = self.epoch_widget.selected_epoch_end
+        rr_times = self.filter_widget.filtered_rr_times[start:end]
+        amplitudes = self.filter_widget.filtered_amplitudes[start:end]
+
+
+        if not hasattr(self, "time_series_widget"):
+            print("Создаем новый CreatingTimeSeriesWidget")
+            self.time_series_widget = CreatingTimeSeriesWidget(self.db_session, rr_times, amplitudes, self.session_id)
+            self.content_layout.addWidget(self.time_series_widget)
+        else:
+            print("Используем существующий CreatingTimeSeriesWidget")
+            self.time_series_widget.update_data(rr_times, amplitudes, self.session_id)
+
+        self.time_series_widget.show()
+
     def show_initial_data(self):
         """Отображение исходных данных и корреляции."""
         if not hasattr(self, "canvas"):
             print("Создаем новый график")
-            # Вычитание постоянных составляющих
-            rr_mean = np.mean(self.rr_times)
-            amplitude_mean = np.mean(self.amplitudes)
-
             # Корреляционные значения
             corr_raw = np.corrcoef(self.rr_times, self.amplitudes)[0, 1]
 
@@ -203,7 +227,7 @@ class SignalProcessingWidget(QWidget):
         self.current_step += 1
         self.prev_button.setEnabled(True)
         self.step_label.setText(f"Этап {self.current_step + 1}: Следующий этап")
-        if self.current_step == 2:  # Если это последний этап
+        if self.current_step == 3:  # Если это последний этап (НАДО ИСПРАВИТЬ)
             self.next_button.setEnabled(False)
         self.show_step()
 

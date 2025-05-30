@@ -9,12 +9,13 @@ from scipy.stats import f
 
 
 class FilterSelectionWidget(QWidget):
-    def __init__(self, db_session, ecs_data, pg_data):
+    def __init__(self, db_session, ecs_data, pg_data, session_id):
         super().__init__()
         print("Инициализация FilterSelectionWidget")
         self.db_session = db_session
         self.rr_times = ecs_data
         self.amplitudes = pg_data
+        self.session_id = session_id  # Добавляем session_id
         self.fs = 200  # Частота дискретизации
 
         # Инициализация отфильтрованных данных

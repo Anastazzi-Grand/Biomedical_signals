@@ -136,8 +136,8 @@ class Analysis_result(Base):
     __tablename__ = "analysis_result"
     analysisresultid = Column(Integer, primary_key=True, index=True)
     sessionid = Column(Integer, ForeignKey("session.sessionid", ondelete="CASCADE", onupdate="CASCADE"), nullable=False)
-    rr_analysis = Column(Text, nullable=False)
-    du_analysis = Column(Text, nullable=False)
+    processed_ecs_data = Column(Float, nullable=True)
+    processed_pg_data = Column(Float, nullable=True)
 
     # Связи
     session = relationship("Sessions", back_populates="analysis_results")
