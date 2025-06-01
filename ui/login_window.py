@@ -8,7 +8,7 @@ class LoginWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Система обработки и отображения биомедицинских сигналов")
+        self.setWindowTitle("Программное средство предварительной обработки и отображения биомедицинских сигналов")
         self.setGeometry(100, 100, 400, 300)
 
         # Главный виджет и макет
@@ -58,10 +58,6 @@ class LoginWindow(QMainWindow):
     def authenticate_user(self):
         username = self.login_input.text()
         password = self.password_input.text()
-
-        # Отладка: вывод значений логина и пароля
-        print(f"Введенный логин: {username}")
-        print(f"Введенный пароль: {'*' * len(password)}")
 
         if not username or not password:
             self.error_label.setText("Введите логин и пароль!")

@@ -3,18 +3,18 @@ from database.models import Activity_type
 
 
 # Создание нового типа активности
-def create_activity_type(db: Session, activity_name: str, description: str = None):
+def create_activity_type(db: Session, activityname: str, description: str = None):
     """
     Создание нового типа активности.
     Проверяет уникальность названия активности.
     """
     # Проверка на дублирование названия
-    existing_activity = db.query(Activity_type).filter(Activity_type.activity_name.ilike(activity_name)).first()
+    existing_activity = db.query(Activity_type).filter(Activity_type.activityname.ilike(activityname)).first()
     if existing_activity:
-        raise ValueError(f"Тип активности с названием '{activity_name}' уже существует")
+        raise ValueError(f"Тип активности с названием '{activityname}' уже существует")
 
     new_activity_type = Activity_type(
-        activity_name=activity_name,
+        activityname=activityname,
         description=description,
     )
     db.add(new_activity_type)
@@ -36,7 +36,7 @@ def search_activity_types_by_name(db: Session, name: str):
     """
     Поиск типов активностей по частичному совпадению названия.
     """
-    return db.query(Activity_type).filter(Activity_type.activity_name.ilike(f"%{name}%")).all()
+    return db.query(Activity_type).filter(Activity_type.activityname.ilike(f"%{name}%")).all()
 
 
 # Обновление данных типа активности
@@ -53,7 +53,7 @@ def update_activity_type(db: Session, activitytypeid: int, **kwargs):
         new_activityname = kwargs["activityname"]
         existing_activity = (
             db.query(Activity_type)
-            .filter(Activity_type.activity_name.ilike(new_activityname), Activity_type.activitytypeid != activitytypeid)
+            .filter(Activity_type.activityname.ilike(new_activityname), Activity_type.activitytypeid != activitytypeid)
             .first()
         )
         if existing_activity:
@@ -79,3 +79,10 @@ def delete_activity_type(db: Session, activitytypeid: int):
     db.delete(activity_type)
     db.commit()
     return {"message": f"Тип активности с ID {activitytypeid} успешно удален"}
+
+# Получение активности по ID
+def get_activity_type_by_id(db: Session, activitytypeid: int):
+    """
+    Получение активности по её ID.
+    """
+    return db.query(Activity_type).filter(Activity_type.activitytypeid == activitytypeid).first()

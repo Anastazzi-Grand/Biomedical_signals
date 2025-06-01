@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QMainWindow, QLabel, QVBoxLayout, QWidget, QPushButt
 
 from database.session import authenticate_user, get_user_accessible_tables
 from services.theme_switcher import ThemeSwitcher
+from ui.widgets.activitytype_widget import ActivityTypeWidget
 from ui.widgets.ecs_widget import ECSDataWidget
 from ui.widgets.patient_widget import PatientWidget
 from ui.widgets.pg_widget import PGDataWidget
@@ -12,6 +13,26 @@ from ui.widgets.sessions_widget import SessionWidget
 class MainWindow(QMainWindow):
     def __init__(self, username, password):
         super().__init__()
+
+        # Словарь для перевода названий таблиц на русский
+        self.table_names_translation = {
+            "activity_type": "Виды деятельностей",
+            "analysis_result": "Результаты анализа",
+            "chronic_condition": "Хронические заболевания",
+            "diagnosis": "Диагнозы",
+            "doctor": "Врач",
+            "doctor_schedule": "График работы врачей",
+            "ecs_data": "ЭКС данные",
+            "equipment": "Оборудование",
+            "laboratory": "Лаборатория",
+            "patient": "Пациент",
+            "patient_activity": "Вид деятельности пациента",
+            "pg_data": "ПГ данные",
+            "polyclinic": "Поликлиника",
+            "registration": "Регистрация",
+            "session": "Сеанс",
+            "treatment_recommendation": "Рекомендации по лечению"
+        }
 
         # Сохраняем логин и пароль
         self.username = username
@@ -56,9 +77,14 @@ class MainWindow(QMainWindow):
             if not accessible_tables:
                 raise Exception("Нет доступных таблиц для пользователя.")
 
+            # Исключаем таблицу login_audit
+            accessible_tables = [table for table in accessible_tables if table != 'login_audit']
+
             # Добавляем вкладки для каждой доступной таблицы
             for table_name in accessible_tables:
-                if table_name == 'patient':
+                if table_name == 'activity_type':
+                    tab_content = ActivityTypeWidget(self.db_session)
+                elif table_name == 'patient':
                     tab_content = PatientWidget(self.db_session)
                 elif table_name == 'ecs_data':
                     tab_content = ECSDataWidget(self.db_session)
@@ -68,9 +94,11 @@ class MainWindow(QMainWindow):
                     tab_content = SessionWidget(self.db_session)
                 else:
                     tab_content = QLabel(f"Содержимое таблицы: {table_name}")
-                self.tab_widget.addTab(tab_content, table_name.capitalize())
+
+                # Получаем русское название таблицы
+                russian_name = self.table_names_translation.get(table_name, table_name.capitalize())
+                self.tab_widget.addTab(tab_content, russian_name)
         except Exception as e:
-            print(f"Ошибка при получении доступных таблиц: {e}")
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить данные: {e}")
 
         # Кнопка "В главное меню"
@@ -91,12 +119,9 @@ class MainWindow(QMainWindow):
         # Очищаем текущий интерфейс
         self.clear_current_interface()
 
-        print("Создание ResearcherWidget...")
         try:
-            print(f"Передаваемая db_session: {self.db_session}")
             self.main_menu_widget = ResearcherWidget(self.db_session)  # Передаем db_session
         except Exception as e:
-            print(f"Ошибка при создании ResearcherWidget: {e}")
             QMessageBox.critical(self, "Ошибка", f"Не удалось отобразить главное меню: {e}")
             return
 
@@ -121,16 +146,12 @@ class MainWindow(QMainWindow):
     def return_to_tabs(self):
         """Возвращает к вкладкам."""
         if not self.is_main_menu_visible:
-            print("Уже на вкладках, ничего не делаем.")
             return
 
-        print("Очистка интерфейса...")
         self.clear_current_interface()
 
-        print("Восстановление основного интерфейса...")
         self.setup_main_interface(self.username, self.password)  # Используем сохраненные данные
 
-        print("Обновление флага is_main_menu_visible...")
         self.is_main_menu_visible = False
 
     def logout(self):
