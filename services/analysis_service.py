@@ -1,6 +1,6 @@
 from datetime import date, time
 from sqlalchemy.orm import Session, joinedload
-from database.models import Analysis_result, Sessions
+from database.models import Analysis_result, Sessions, Patient, Doctor
 
 
 # Создание нового результата анализа
@@ -136,3 +136,36 @@ def delete_analysis_results_by_sessionid(db: Session, sessionid: int):
     """
     db.query(Analysis_result).filter(Analysis_result.sessionid == sessionid).delete()
     db.commit()
+
+def get_analysis_results_by_patient_fio(db: Session, patient_fio: str):
+    """
+    Получение результатов анализа по ФИО пациента.
+    """
+    try:
+        # Выполняем запрос с JOIN для получения данных о сессии, пациенте и враче
+        results = (
+            db.query(Analysis_result, Sessions, Patient, Doctor)
+            .join(Sessions, Analysis_result.sessionid == Sessions.sessionid)
+            .join(Patient, Sessions.patientid == Patient.patientid)
+            .join(Doctor, Sessions.doctorid == Doctor.doctorid)
+            .filter(Patient.patient_fio.ilike(f"%{patient_fio}%"))  # Частичное совпадение
+            .all()
+        )
+
+        # Формируем список результатов с дополнительной информацией
+        formatted_results = [
+            {
+                "analysisresultid": analysis_result.analysisresultid,
+                "session_date": session.session_date,
+                "session_starttime": session.session_starttime,
+                "patient_fio": patient.patient_fio,
+                "doctor_fio": doctor.doctor_fio,
+                "processed_ecs_data": analysis_result.processed_ecs_data,
+                "processed_pg_data": analysis_result.processed_pg_data,
+            }
+            for analysis_result, session, patient, doctor in results
+        ]
+
+        return formatted_results
+    except Exception as e:
+        raise ValueError(f"Ошибка при получении результатов анализа: {e}")
