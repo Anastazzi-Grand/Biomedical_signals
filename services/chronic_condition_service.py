@@ -7,8 +7,8 @@ from database.models import Chronic_condition, Patient
 def create_chronic_condition(
     db: Session,
     patient_fio: str,  # Вместо patientid
-    condition_name: str,
-    diagnosis_date: date = None,
+    conditionname: str,
+    diagnosisdate: date = None,
     remarks: str = None,
 ):
     """
@@ -21,8 +21,8 @@ def create_chronic_condition(
 
     new_condition = Chronic_condition(
         patientid=patient.patientid,
-        condition_name=condition_name,
-        diagnosis_date=diagnosis_date,
+        conditionname=conditionname,
+        diagnosisdate=diagnosisdate,
         remarks=remarks,
     )
     db.add(new_condition)
@@ -32,15 +32,14 @@ def create_chronic_condition(
 
 
 # Получение всех хронических заболеваний с заменой внешних ключей на читаемые значения
-def get_chronic_conditions_with_details(db: Session, skip: int = 0, limit: int = 100):
+def get_chronic_conditions_with_details(db: Session, skip: int = 0):
     """
-    Получение всех хронических заболеваний с заменой patientid на ФИО пациента.
+    Получение всех хронических заболеваний с заменой patientid на ФИО пациента и дату рождения.
     """
     conditions = (
         db.query(Chronic_condition)
         .options(joinedload(Chronic_condition.patient))
         .offset(skip)
-        .limit(limit)
         .all()
     )
 
@@ -48,10 +47,11 @@ def get_chronic_conditions_with_details(db: Session, skip: int = 0, limit: int =
     result = [
         {
             "chronicid": condition.chronicid,
-            "condition_name": condition.condition_name,
-            "diagnosis_date": condition.diagnosis_date,
+            "conditionname": condition.conditionname,
+            "diagnosisdate": condition.diagnosisdate,
             "remarks": condition.remarks,
             "patient_fio": condition.patient.patient_fio if condition.patient else None,
+            "patient_birthdate": condition.patient.patient_birthdate if condition.patient else None,
         }
         for condition in conditions
     ]
@@ -74,8 +74,8 @@ def search_chronic_conditions_by_patient_fio(db: Session, fio: str):
     result = [
         {
             "chronicid": condition.chronicid,
-            "condition_name": condition.condition_name,
-            "diagnosis_date": condition.diagnosis_date,
+            "conditionname": condition.conditionname,
+            "diagnosisdate": condition.diagnosisdate,
             "remarks": condition.remarks,
             "patient_fio": condition.patient.patient_fio if condition.patient else None,
         }
@@ -89,8 +89,8 @@ def update_chronic_condition(
     db: Session,
     chronicid: int,
     patient_fio: str = None,  # Вместо patientid
-    condition_name: str = None,
-    diagnosis_date: date = None,
+    conditionname: str = None,
+    diagnosisdate: date = None,
     remarks: str = None,
 ):
     """
@@ -109,10 +109,10 @@ def update_chronic_condition(
         condition.patientid = patient.patientid
 
     # Обновляем остальные поля
-    if condition_name is not None:
-        condition.condition_name = condition_name
-    if diagnosis_date is not None:
-        condition.diagnosis_date = diagnosis_date
+    if conditionname is not None:
+        condition.conditionname = conditionname
+    if diagnosisdate is not None:
+        condition.diagnosis_date = diagnosisdate
     if remarks is not None:
         condition.remarks = remarks
 
