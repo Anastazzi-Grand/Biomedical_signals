@@ -6,6 +6,7 @@ from ui.widgets.activitytype_widget import ActivityTypeWidget
 from ui.widgets.analysisresults_widget import AnalysisResultWidget
 from ui.widgets.chroniccondition_widget import ChronicConditionWidget
 from ui.widgets.diagnosis_widget import DiagnosisWidget
+from ui.widgets.doctorschedule_widget import DoctorScheduleWidget
 from ui.widgets.ecs_widget import ECSDataWidget
 from ui.widgets.patient_widget import PatientWidget
 from ui.widgets.pg_widget import PGDataWidget
@@ -93,6 +94,8 @@ class MainWindow(QMainWindow):
                     tab_content = ChronicConditionWidget(self.db_session)
                 elif table_name == 'diagnosis':
                     tab_content = DiagnosisWidget(self.db_session)
+                elif table_name == 'doctor_schedule':
+                    tab_content = DoctorScheduleWidget(self.db_session)
                 elif table_name == 'patient':
                     tab_content = PatientWidget(self.db_session)
                 elif table_name == 'ecs_data':

@@ -44,9 +44,6 @@ def create_doctor_schedule(
 
 # Получение всех записей расписания врачей
 def get_all_doctor_schedules(db: Session, skip: int = 0, limit: int = 100):
-    """
-    Получение всех записей расписания врачей с заменой doctorid на ФИО врача.
-    """
     schedules = (
         db.query(Doctor_schedule)
         .join(Doctor, Doctor_schedule.doctorid == Doctor.doctorid)
@@ -55,11 +52,10 @@ def get_all_doctor_schedules(db: Session, skip: int = 0, limit: int = 100):
         .all()
     )
 
-    # Формируем результат с заменой внешних ключей
     result = [
         {
             "scheduleid": schedule.scheduleid,
-            "doctor_fio": schedule.doctor.doctor_fio,
+            "doctor_fio": schedule.doctor.doctor_fio if schedule.doctor else None,
             "workdate": schedule.workdate,
             "starttime": schedule.starttime,
             "endtime": schedule.endtime,
@@ -68,24 +64,18 @@ def get_all_doctor_schedules(db: Session, skip: int = 0, limit: int = 100):
     ]
     return result
 
-
-# Получение расписания для конкретного врача
 def get_schedule_for_doctor(db: Session, doctor_fio: str):
-    """
-    Получение расписания для конкретного врача по его ФИО.
-    """
     schedules = (
         db.query(Doctor_schedule)
         .join(Doctor, Doctor_schedule.doctorid == Doctor.doctorid)
-        .filter(Doctor.doctor_fio.ilike(doctor_fio))
+        .filter(Doctor.doctor_fio.ilike(f"%{doctor_fio}%"))
         .all()
     )
 
-    # Формируем результат с заменой внешних ключей
     result = [
         {
             "scheduleid": schedule.scheduleid,
-            "doctor_fio": schedule.doctor.doctor_fio,
+            "doctor_fio": schedule.doctor.doctor_fio if schedule.doctor else None,
             "workdate": schedule.workdate,
             "starttime": schedule.starttime,
             "endtime": schedule.endtime,
@@ -94,8 +84,6 @@ def get_schedule_for_doctor(db: Session, doctor_fio: str):
     ]
     return result
 
-
-# Получение доступных слотов для записи к врачу
 # Получение доступных слотов для записи к врачу
 def get_available_slots_for_doctor(db: Session, doctor_fio: str):
     """
