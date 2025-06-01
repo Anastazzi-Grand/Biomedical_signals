@@ -8,9 +8,9 @@ from database.models import Diagnosis, Patient, Doctor
 def create_diagnosis(
     db: Session,
     patient_fio: str,  # Вместо patientid
-    diagnosis_name: str = None,
+    diagnosisname: str = None,
     description: str = None,
-    date_of_diagnosis: date = None,
+    dateofdiagnosis: date = None,
     doctor_fio: str = None,  # Вместо doctorid
 ):
     # Поиск пациента по ФИО
@@ -28,9 +28,9 @@ def create_diagnosis(
     # Создание диагноза
     new_diagnosis = Diagnosis(
         patientid=patient.patientid,
-        diagnosis_name=diagnosis_name,
+        diagnosisname=diagnosisname,
         description=description,
-        date_of_diagnosis=date_of_diagnosis,
+        dateofdiagnosis=dateofdiagnosis,
         doctorid=doctor.doctorid if doctor else None,
     )
     db.add(new_diagnosis)
@@ -41,9 +41,6 @@ def create_diagnosis(
 
 # Получение всех диагнозов с заменой внешних ключей на читаемые значения
 def get_diagnoses_with_details(db: Session, skip: int = 0, limit: int = 100):
-    """
-    Получение всех диагнозов с заменой внешних ключей на читаемые значения.
-    """
     diagnoses = (
         db.query(Diagnosis)
         .options(joinedload(Diagnosis.patient), joinedload(Diagnosis.doctor))
@@ -52,7 +49,6 @@ def get_diagnoses_with_details(db: Session, skip: int = 0, limit: int = 100):
         .all()
     )
 
-    # Формируем результат с заменой внешних ключей
     result = [
         {
             "diagnosisid": diagnosis.diagnosisid,
@@ -60,7 +56,9 @@ def get_diagnoses_with_details(db: Session, skip: int = 0, limit: int = 100):
             "description": diagnosis.description,
             "dateofdiagnosis": diagnosis.dateofdiagnosis,
             "patient_fio": diagnosis.patient.patient_fio if diagnosis.patient else None,
+            "patient_birthdate": diagnosis.patient.patient_birthdate if diagnosis.patient else None,
             "doctor_fio": diagnosis.doctor.doctor_fio if diagnosis.doctor else None,
+            "doctor_birthdate": diagnosis.doctor.doctor_birthdate if diagnosis.doctor else None,
         }
         for diagnosis in diagnoses
     ]
@@ -69,9 +67,6 @@ def get_diagnoses_with_details(db: Session, skip: int = 0, limit: int = 100):
 
 # Поиск диагнозов по ФИО пациента
 def search_diagnoses_by_patient_fio(db: Session, fio: str):
-    """
-    Поиск диагнозов по частичному совпадению ФИО пациента.
-    """
     diagnoses = (
         db.query(Diagnosis)
         .join(Patient, Diagnosis.patientid == Patient.patientid)
@@ -79,15 +74,16 @@ def search_diagnoses_by_patient_fio(db: Session, fio: str):
         .all()
     )
 
-    # Формируем результат с заменой внешних ключей
     result = [
         {
             "diagnosisid": diagnosis.diagnosisid,
-            "diagnosis_name": diagnosis.diagnosisname,
+            "diagnosisname": diagnosis.diagnosisname,
             "description": diagnosis.description,
             "dateofdiagnosis": diagnosis.dateofdiagnosis,
             "patient_fio": diagnosis.patient.patient_fio if diagnosis.patient else None,
+            "patient_birthdate": diagnosis.patient.patient_birthdate if diagnosis.patient else None,
             "doctor_fio": diagnosis.doctor.doctor_fio if diagnosis.doctor else None,
+            "doctor_birthdate": diagnosis.doctor.doctor_birthdate if diagnosis.doctor else None,
         }
         for diagnosis in diagnoses
     ]
@@ -99,7 +95,7 @@ def search_diagnoses_by_name(db: Session, name: str):
     """
     Поиск диагнозов по частичному совпадению названия.
     """
-    diagnoses = db.query(Diagnosis).filter(Diagnosis.diagnosis_name.ilike(f"%{name}%")).all()
+    diagnoses = db.query(Diagnosis).filter(Diagnosis.diagnosisname.ilike(f"%{name}%")).all()
 
     # Формируем результат с заменой внешних ключей
     result = [

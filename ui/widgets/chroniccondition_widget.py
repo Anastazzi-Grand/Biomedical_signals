@@ -95,6 +95,9 @@ class ChronicConditionWidget(QWidget):
                 combo_box.setProperty("row", row)  # Сохраняем текущую строку в данных комбобокса
                 self.table.setCellWidget(row, 4, combo_box)
 
+            # Автоматическая настройка ширины столбцов
+            self.table.resizeColumnsToContents()
+
         except Exception as e:
             print(f"Ошибка при загрузке данных: {e}")
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить данные: {e}")
